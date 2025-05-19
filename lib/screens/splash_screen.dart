@@ -1,16 +1,29 @@
 import 'package:flutter/material.dart';
 import 'package:animated_text_kit/animated_text_kit.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:smart_plaza/screens/login_screen.dart';
+import 'package:smart_plaza/screens/dashboard.dart';
 
 class SplashScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     // Navigate after delay
     Future.delayed(Duration(seconds: 3), () {
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(builder: (_) => LoginScreen()),
-      );
+      User? user = FirebaseAuth.instance.currentUser;
+
+      if (user != null) {
+        // User is logged in, go to Dashboard
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (_) => Dashboard()),
+        );
+      } else {
+        // User not logged in, go to LoginScreen
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (_) => LoginScreen()),
+        );
+      }
     });
 
     return Scaffold(

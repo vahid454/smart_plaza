@@ -1,11 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:intl/intl.dart'; // Make sure intl is in pubspec.yaml
 
 class SellItemScreen extends StatefulWidget {
   final String itemId;
   final Map<String, dynamic> itemData;
 
-  SellItemScreen({required this.itemId, required this.itemData});
+  const SellItemScreen({
+    Key? key,
+    required this.itemId,
+    required this.itemData,
+  }) : super(key: key);
 
   @override
   _SellItemScreenState createState() => _SellItemScreenState();
@@ -20,63 +25,94 @@ class _SellItemScreenState extends State<SellItemScreen> {
   final _sellPartyController = TextEditingController();
   final _remarksController = TextEditingController();
 
-  // Payment info controllers
   final _paymentDateController = TextEditingController();
   final _paymentRemarksController = TextEditingController();
 
   String? _selectedPaymentMode;
 
+  final DateFormat _dateFormatter = DateFormat('yyyy-MM-dd');
+
   @override
   void initState() {
     super.initState();
+
+  // Prevent opening if already sold
+  if (widget.itemData['isSold'] == true) {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      Navigator.pop(context);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('This item is already sold.')),
+      );
+    });
+    return;
+  }
+
+    // Initialize payment and remarks fields from existing data (if any)
     _remarksController.text = widget.itemData['remarks'] ?? '';
-    // Optionally pre-fill payment info if present
     _selectedPaymentMode = widget.itemData['paymentMode'];
     _paymentDateController.text = widget.itemData['paymentDate'] ?? '';
     _paymentRemarksController.text = widget.itemData['paymentRemarks'] ?? '';
   }
 
-  Future<void> _sellItem() async {
-    if (_formKey.currentState!.validate()) {
-      try {
-        Map<String, dynamic> updateData = {
-          'sellPrice': double.parse(_sellPriceController.text),
-          'sellDate': _sellDateController.text,
-          'sellParty': _sellPartyController.text,
-          'remarks': _remarksController.text,
-          'isSold': true,
-          'soldAt': FieldValue.serverTimestamp(),
-        };
-
-        // Add payment info only if payment mode is selected
-        if (_selectedPaymentMode != null && _selectedPaymentMode!.isNotEmpty) {
-          updateData.addAll({
-            'paymentMode': _selectedPaymentMode,
-            'paymentDate': _paymentDateController.text,
-            'paymentRemarks': _paymentRemarksController.text,
-          });
-        }
-
-        await _firestore.collection('inventory').doc(widget.itemId).update(updateData);
-
-        Navigator.pop(context, true);
-      } catch (e) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error updating item: $e')),
-        );
-      }
-    }
+  @override
+  void dispose() {
+    _sellPriceController.dispose();
+    _sellDateController.dispose();
+    _sellPartyController.dispose();
+    _remarksController.dispose();
+    _paymentDateController.dispose();
+    _paymentRemarksController.dispose();
+    super.dispose();
   }
 
   Future<void> _pickDate(TextEditingController controller) async {
+    DateTime initialDate = DateTime.now();
+    if (controller.text.isNotEmpty) {
+      try {
+        initialDate = _dateFormatter.parse(controller.text);
+      } catch (_) {}
+    }
     final date = await showDatePicker(
       context: context,
-      initialDate: DateTime.now(),
+      initialDate: initialDate,
       firstDate: DateTime(2000),
       lastDate: DateTime.now(),
     );
     if (date != null) {
-      controller.text = '${date.day}/${date.month}/${date.year}';
+      controller.text = _dateFormatter.format(date);
+    }
+  }
+
+  Future<void> _sellItem() async {
+    if (!_formKey.currentState!.validate()) return;
+
+    try {
+      // Prepare update data map
+      Map<String, dynamic> updateData = {
+        'sellPrice': double.parse(_sellPriceController.text),
+        'sellDate': _sellDateController.text,
+        'sellParty': _sellPartyController.text,
+        'remarks': _remarksController.text,
+        'isSold': true,
+        'soldAt': FieldValue.serverTimestamp(),
+      };
+
+      // Optional payment info
+      if (_selectedPaymentMode != null && _selectedPaymentMode!.isNotEmpty) {
+        updateData.addAll({
+          'paymentMode': _selectedPaymentMode,
+          'paymentDate': _paymentDateController.text,
+          'paymentRemarks': _paymentRemarksController.text,
+        });
+      }
+
+      await _firestore.collection('inventory').doc(widget.itemId).update(updateData);
+
+      Navigator.pop(context, true); // Return true to indicate sold
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error updating item: $e')),
+      );
     }
   }
 
@@ -91,18 +127,22 @@ class _SellItemScreenState extends State<SellItemScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
+              // Item Info
               Card(
                 elevation: 3,
                 margin: const EdgeInsets.only(bottom: 16),
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                 child: Padding(
-                  padding: const EdgeInsets.all(16.0),
+                  padding: const EdgeInsets.all(16),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text('Item: ${widget.itemData['name']}', style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                      Text(
+                        'Item: ${widget.itemData['name'] ?? 'Unnamed'}',
+                        style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                      ),
                       const SizedBox(height: 6),
-                      Text('IMEI: ${widget.itemData['imei']}'),
+                      Text('IMEI: ${widget.itemData['imei'] ?? 'N/A'}'),
                     ],
                   ),
                 ),
@@ -122,28 +162,46 @@ class _SellItemScreenState extends State<SellItemScreen> {
                       const SizedBox(height: 12),
                       TextFormField(
                         controller: _sellPriceController,
-                        decoration: const InputDecoration(labelText: 'Sell Price*', prefixIcon: Icon(Icons.attach_money)),
-                        keyboardType: TextInputType.number,
-                        validator: (value) => value!.isEmpty ? 'Required' : null,
+                        decoration: const InputDecoration(
+                          labelText: 'Sell Price*',
+                          prefixIcon: Icon(Icons.attach_money),
+                        ),
+                        keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                        validator: (value) {
+                          if (value == null || value.trim().isEmpty) return 'Required';
+                          final n = num.tryParse(value);
+                          if (n == null) return 'Enter a valid number';
+                          if (n <= 0) return 'Price must be greater than zero';
+                          return null;
+                        },
                       ),
                       const SizedBox(height: 12),
                       TextFormField(
                         controller: _sellDateController,
-                        decoration: const InputDecoration(labelText: 'Sell Date*', prefixIcon: Icon(Icons.calendar_today)),
+                        decoration: const InputDecoration(
+                          labelText: 'Sell Date*',
+                          prefixIcon: Icon(Icons.calendar_today),
+                        ),
                         readOnly: true,
                         onTap: () => _pickDate(_sellDateController),
-                        validator: (value) => value!.isEmpty ? 'Required' : null,
+                        validator: (value) => (value == null || value.isEmpty) ? 'Required' : null,
                       ),
                       const SizedBox(height: 12),
                       TextFormField(
                         controller: _sellPartyController,
-                        decoration: const InputDecoration(labelText: 'Sell Party*', prefixIcon: Icon(Icons.person)),
-                        validator: (value) => value!.isEmpty ? 'Required' : null,
+                        decoration: const InputDecoration(
+                          labelText: 'Sell Party*',
+                          prefixIcon: Icon(Icons.person),
+                        ),
+                        validator: (value) => (value == null || value.trim().isEmpty) ? 'Required' : null,
                       ),
                       const SizedBox(height: 12),
                       TextFormField(
                         controller: _remarksController,
-                        decoration: const InputDecoration(labelText: 'Remarks', prefixIcon: Icon(Icons.notes)),
+                        decoration: const InputDecoration(
+                          labelText: 'Remarks',
+                          prefixIcon: Icon(Icons.notes),
+                        ),
                         maxLines: 3,
                       ),
                     ],
@@ -151,7 +209,7 @@ class _SellItemScreenState extends State<SellItemScreen> {
                 ),
               ),
 
-              // Payment Info (optional)
+              // Payment Info (Optional)
               Card(
                 elevation: 3,
                 margin: const EdgeInsets.only(bottom: 16),
@@ -164,7 +222,10 @@ class _SellItemScreenState extends State<SellItemScreen> {
                       const Text('Payment Information (Optional)', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
                       const SizedBox(height: 12),
                       DropdownButtonFormField<String>(
-                        decoration: const InputDecoration(labelText: 'Payment Mode', prefixIcon: Icon(Icons.payment)),
+                        decoration: const InputDecoration(
+                          labelText: 'Payment Mode',
+                          prefixIcon: Icon(Icons.payment),
+                        ),
                         items: ['Cash', 'UPI', 'Card', 'Other']
                             .map((mode) => DropdownMenuItem(value: mode, child: Text(mode)))
                             .toList(),
@@ -175,14 +236,20 @@ class _SellItemScreenState extends State<SellItemScreen> {
                       const SizedBox(height: 12),
                       TextFormField(
                         controller: _paymentDateController,
-                        decoration: const InputDecoration(labelText: 'Payment Date', prefixIcon: Icon(Icons.calendar_today)),
+                        decoration: const InputDecoration(
+                          labelText: 'Payment Date',
+                          prefixIcon: Icon(Icons.calendar_today),
+                        ),
                         readOnly: true,
                         onTap: () => _pickDate(_paymentDateController),
                       ),
                       const SizedBox(height: 12),
                       TextFormField(
                         controller: _paymentRemarksController,
-                        decoration: const InputDecoration(labelText: 'Payment Remarks', prefixIcon: Icon(Icons.note_add)),
+                        decoration: const InputDecoration(
+                          labelText: 'Payment Remarks',
+                          prefixIcon: Icon(Icons.note_add),
+                        ),
                         maxLines: 2,
                       ),
                     ],
@@ -190,6 +257,7 @@ class _SellItemScreenState extends State<SellItemScreen> {
                 ),
               ),
 
+              // Sell Button
               SizedBox(
                 width: double.infinity,
                 child: ElevatedButton(
@@ -205,16 +273,5 @@ class _SellItemScreenState extends State<SellItemScreen> {
         ),
       ),
     );
-  }
-
-  @override
-  void dispose() {
-    _sellPriceController.dispose();
-    _sellDateController.dispose();
-    _sellPartyController.dispose();
-    _remarksController.dispose();
-    _paymentDateController.dispose();
-    _paymentRemarksController.dispose();
-    super.dispose();
   }
 }

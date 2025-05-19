@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:image_picker/image_picker.dart';
 import 'dart:io';
+import 'package:intl/intl.dart';
+
 
 class AddItemScreen extends StatefulWidget {
   @override
@@ -186,7 +188,7 @@ class _AddItemScreenState extends State<AddItemScreen> {
                       lastDate: DateTime.now(),
                     );
                     if (date != null) {
-                      _purchaseDateController.text = '${date.day}/${date.month}/${date.year}';
+                      _purchaseDateController.text = DateFormat('yyyy-MM-dd').format(date);
                     }
                   },
                 ),
