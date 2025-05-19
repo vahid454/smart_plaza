@@ -7,6 +7,25 @@
   "client": [
     {
       "client_info": {
+        "mobilesdk_app_id": "1:716245733456:android:f021aeaf5f0434f47cc155",
+        "android_client_info": {
+          "package_name": "com.example.smart_plaza"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAQt87G65kU80_lMQuqDcLFTvmQzCIF9ms"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
         "mobilesdk_app_id": "1:716245733456:android:54aacf180011c12f7cc155",
         "android_client_info": {
           "package_name": "com.sarangpur.smartplaza"
