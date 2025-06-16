@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart'; // For Firebase logout
 import 'package:intl/intl.dart'; // Make sure intl is in pubspec.yaml
 
 class SellItemScreen extends StatefulWidget {
@@ -32,9 +33,15 @@ class _SellItemScreenState extends State<SellItemScreen> {
 
   final DateFormat _dateFormatter = DateFormat('yyyy-MM-dd');
 
+
+  String? userRole;
+  final uid = FirebaseAuth.instance.currentUser?.uid;
+
   @override
   void initState() {
     super.initState();
+    fetchUserRole();
+
 
   // Prevent opening if already sold
   if (widget.itemData['isSold'] == true) {
@@ -52,6 +59,15 @@ class _SellItemScreenState extends State<SellItemScreen> {
     _selectedPaymentMode = widget.itemData['paymentMode'];
     _paymentDateController.text = widget.itemData['paymentDate'] ?? '';
     _paymentRemarksController.text = widget.itemData['paymentRemarks'] ?? '';
+  }
+  
+  Future<void> fetchUserRole() async {
+    if (uid != null) {
+      final doc = await FirebaseFirestore.instance.collection('users').doc(uid).get();
+      setState(() {
+        userRole = doc.data()?['role'];
+      });
+    }
   }
 
   @override
@@ -118,6 +134,14 @@ class _SellItemScreenState extends State<SellItemScreen> {
 
   @override
   Widget build(BuildContext context) {
+
+    if (userRole == null) {
+      return Scaffold(
+        appBar: AppBar(title: const Text('Invalid Role')),
+        body: const Center(child: CircularProgressIndicator()),
+      );
+    }
+
     return Scaffold(
       appBar: AppBar(title: const Text('Sell Item')),
       body: SingleChildScrollView(
@@ -209,53 +233,53 @@ class _SellItemScreenState extends State<SellItemScreen> {
                 ),
               ),
 
-              // Payment Info (Optional)
-              Card(
-                elevation: 3,
-                margin: const EdgeInsets.only(bottom: 16),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                child: Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text('Payment Information (Optional)', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-                      const SizedBox(height: 12),
-                      DropdownButtonFormField<String>(
-                        decoration: const InputDecoration(
-                          labelText: 'Payment Mode',
-                          prefixIcon: Icon(Icons.payment),
+              if (userRole == 'owner')
+                Card(
+                  elevation: 3,
+                  margin: const EdgeInsets.only(bottom: 16),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                  child: Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text('Payment Information (Optional)', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                        const SizedBox(height: 12),
+                        DropdownButtonFormField<String>(
+                          decoration: const InputDecoration(
+                            labelText: 'Payment Mode',
+                            prefixIcon: Icon(Icons.payment),
+                          ),
+                          items: ['Cash', 'UPI', 'Card', 'Other']
+                              .map((mode) => DropdownMenuItem(value: mode, child: Text(mode)))
+                              .toList(),
+                          value: _selectedPaymentMode,
+                          onChanged: (val) => setState(() => _selectedPaymentMode = val),
+                          isExpanded: true,
                         ),
-                        items: ['Cash', 'UPI', 'Card', 'Other']
-                            .map((mode) => DropdownMenuItem(value: mode, child: Text(mode)))
-                            .toList(),
-                        value: _selectedPaymentMode,
-                        onChanged: (val) => setState(() => _selectedPaymentMode = val),
-                        isExpanded: true,
-                      ),
-                      const SizedBox(height: 12),
-                      TextFormField(
-                        controller: _paymentDateController,
-                        decoration: const InputDecoration(
-                          labelText: 'Payment Date',
-                          prefixIcon: Icon(Icons.calendar_today),
+                        const SizedBox(height: 12),
+                        TextFormField(
+                          controller: _paymentDateController,
+                          decoration: const InputDecoration(
+                            labelText: 'Payment Date',
+                            prefixIcon: Icon(Icons.calendar_today),
+                          ),
+                          readOnly: true,
+                          onTap: () => _pickDate(_paymentDateController),
                         ),
-                        readOnly: true,
-                        onTap: () => _pickDate(_paymentDateController),
-                      ),
-                      const SizedBox(height: 12),
-                      TextFormField(
-                        controller: _paymentRemarksController,
-                        decoration: const InputDecoration(
-                          labelText: 'Payment Remarks',
-                          prefixIcon: Icon(Icons.note_add),
+                        const SizedBox(height: 12),
+                        TextFormField(
+                          controller: _paymentRemarksController,
+                          decoration: const InputDecoration(
+                            labelText: 'Payment Remarks',
+                            prefixIcon: Icon(Icons.note_add),
+                          ),
+                          maxLines: 2,
                         ),
-                        maxLines: 2,
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
                 ),
-              ),
 
               // Sell Button
               SizedBox(

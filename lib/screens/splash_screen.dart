@@ -48,7 +48,7 @@ class SplashScreen extends StatelessWidget {
                 child: AnimatedTextKit(
                   animatedTexts: [
                     TypewriterAnimatedText(
-                      'Smart Plaza',
+                      'iStocker',
                       speed: Duration(milliseconds: 100),
                     ),
                   ],
