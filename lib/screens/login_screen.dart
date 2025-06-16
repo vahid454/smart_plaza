@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:smart_plaza/screens/dashboard.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:smart_plaza/screens/dashboard.dart'; // Update with separate owner/shopkeeper dashboard if needed
+import 'package:smart_plaza/screens/signup_screen.dart'; // Ensure this import is correct
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -10,6 +12,7 @@ class LoginScreen extends StatefulWidget {
 }
 
 class _LoginScreenState extends State<LoginScreen> {
+  String? _selectedRole; // 'owner' or 'shopkeeper'
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   bool _isLoading = false;
@@ -24,10 +27,24 @@ class _LoginScreenState extends State<LoginScreen> {
       );
 
       if (credential.user != null) {
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(builder: (_) => Dashboard()),
-        );
+        final doc = await FirebaseFirestore.instance
+            .collection('users')
+            .doc(credential.user!.uid)
+            .get();
+
+        if (doc.exists && doc['role'] == _selectedRole) {
+          // Role matches, login success
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(builder: (_) => Dashboard()), // You can redirect to separate dashboards here
+          );
+        } else {
+          // Role mismatch
+          await FirebaseAuth.instance.signOut();
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text("Role mismatch. Please login with correct role.")),
+          );
+        }
       }
     } on FirebaseAuthException catch (e) {
       String message = 'Login failed';
@@ -39,13 +56,9 @@ class _LoginScreenState extends State<LoginScreen> {
         message = 'Invalid email format';
       }
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(message)),
-      );
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error: $e')),
-      );
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
     } finally {
       setState(() => _isLoading = false);
     }
@@ -54,76 +67,132 @@ class _LoginScreenState extends State<LoginScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: Container(
-        width: double.infinity,
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            colors: [Colors.deepPurple, Colors.blueAccent],
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
+      body: _selectedRole == null ? _buildRoleSelection() : _buildLoginForm(),
+    );
+  }
+
+  Widget _buildRoleSelection() {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Card(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          elevation: 8,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 32),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Text(
+                  "Login as",
+                  style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+                ),
+                const SizedBox(height: 24),
+                ElevatedButton(
+                  onPressed: () => setState(() => _selectedRole = 'owner'),
+                  child: const Text("Owner"),
+                ),
+                const SizedBox(height: 16),
+                ElevatedButton(
+                  onPressed: () => setState(() => _selectedRole = 'shopkeeper'),
+                  child: const Text("Shopkeeper"),
+                ),
+              ],
+            ),
           ),
         ),
-        child: Center(
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.all(24.0),
-            child: Card(
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-              elevation: 8,
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 32.0),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    const Text(
-                      "Login to Smart Plaza",
-                      style: TextStyle(
-                        fontSize: 24,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.deepPurple,
-                      ),
+      ),
+    );
+  }
+
+  Widget _buildLoginForm() {
+    return Container(
+      width: double.infinity,
+      decoration: const BoxDecoration(
+        gradient: LinearGradient(
+          colors: [Colors.deepPurple, Colors.blueAccent],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+      ),
+      child: Center(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.all(24.0),
+          child: Card(
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+            elevation: 8,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 32.0),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    "Login as ${_selectedRole?.toUpperCase()}",
+                    style: const TextStyle(
+                      fontSize: 24,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.deepPurple,
                     ),
-                    const SizedBox(height: 32),
-                    TextField(
-                      controller: _emailController,
-                      decoration: const InputDecoration(
-                        labelText: 'Email',
-                        prefixIcon: Icon(Icons.email),
-                        border: OutlineInputBorder(),
-                      ),
-                      keyboardType: TextInputType.emailAddress,
+                  ),
+                  const SizedBox(height: 32),
+                  TextField(
+                    controller: _emailController,
+                    decoration: const InputDecoration(
+                      labelText: 'Email',
+                      prefixIcon: Icon(Icons.email),
+                      border: OutlineInputBorder(),
                     ),
-                    const SizedBox(height: 20),
-                    TextField(
-                      controller: _passwordController,
-                      decoration: const InputDecoration(
-                        labelText: 'Password',
-                        prefixIcon: Icon(Icons.lock),
-                        border: OutlineInputBorder(),
-                      ),
-                      obscureText: true,
+                    keyboardType: TextInputType.emailAddress,
+                  ),
+                  const SizedBox(height: 20),
+                  TextField(
+                    controller: _passwordController,
+                    decoration: const InputDecoration(
+                      labelText: 'Password',
+                      prefixIcon: Icon(Icons.lock),
+                      border: OutlineInputBorder(),
                     ),
-                    const SizedBox(height: 30),
-                    SizedBox(
-                      width: double.infinity,
-                      height: 50,
-                      child: ElevatedButton(
-                        onPressed: _isLoading ? null : _login,
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.lightGreen,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(8),
-                          ),
+                    obscureText: true,
+                  ),
+                  const SizedBox(height: 30),
+                  SizedBox(
+                    width: double.infinity,
+                    height: 50,
+                    child: ElevatedButton(
+                      onPressed: _isLoading ? null : _login,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.lightGreen,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(8),
                         ),
-                        child: _isLoading
-                            ? const CircularProgressIndicator(color: Colors.white)
-                            : const Text(
-                                'Login',
-                                style: TextStyle(fontSize: 18),
-                              ),
                       ),
+                      child: _isLoading
+                          ? const CircularProgressIndicator(color: Colors.white)
+                          : const Text(
+                              'Login',
+                              style: TextStyle(fontSize: 18),
+                            ),
                     ),
-                  ],
-                ),
+                  ),
+                  const SizedBox(height: 16),
+                  TextButton(
+                   onPressed: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => SignupScreen(role: _selectedRole!), // Pass 'owner' or 'shopkeeper'
+                        ),
+                      );
+                    },
+                    child: const Text("Don't have an account? Sign up"),
+                  ),
+                  TextButton(
+                    onPressed: () {
+                      setState(() => _selectedRole = null); // Reset role selection
+                    },
+                    child: const Text("← Go back"),
+                  ),
+                ],
               ),
             ),
           ),

@@ -21,11 +21,18 @@ class ReportsScreen extends StatelessWidget {
     double availableValue = 0;
     int soldThisMonth = 0;
 
+    double totalPurchaseCost = 0;
+    double totalPaymentAmount = 0;
+
     for (var doc in allDocs) {
       final data = doc.data();
 
       if ((data['isSold'] ?? false) == true) {
         soldCount++;
+
+        // Sum profit-related values
+        totalPurchaseCost += (data['purchasePrice'] ?? 0).toDouble();
+        totalPaymentAmount += (data['paymentAmount'] ?? 0).toDouble();
 
         // Check if sold this month
         final soldDate = data['sellDate'];
@@ -43,11 +50,14 @@ class ReportsScreen extends StatelessWidget {
       }
     }
 
+    double profit = totalPaymentAmount - totalPurchaseCost;
+
     return {
       'availableCount': availableCount,
       'soldCount': soldCount,
       'availableValue': availableValue,
       'soldThisMonth': soldThisMonth,
+      'profit': profit,
     };
   }
 
@@ -76,38 +86,61 @@ class ReportsScreen extends StatelessWidget {
               children: [
                 Row(
                   children: [
-                    _buildStatCard(
-                      title: "Available Items",
-                      value: stats['availableCount'].toString(),
-                      icon: Icons.inventory_2_outlined,
-                      color: Colors.green,
-                      onTap: () => _navigateToItemsList(context, false),
+                    Expanded(
+                      child: _buildStatCard(
+                        title: "Available Items",
+                        value: stats['availableCount'].toString(),
+                        icon: Icons.inventory_2_outlined,
+                        color: Colors.green,
+                        onTap: () => _navigateToItemsList(context, false),
+                      ),
                     ),
                     const SizedBox(width: 12),
-                    _buildStatCard(
-                      title: "Sold Items",
-                      value: stats['soldCount'].toString(),
-                      icon: Icons.sell,
-                      color: Colors.orange,
-                      onTap: () => _navigateToItemsList(context, true),
+                    Expanded(
+                      child: _buildStatCard(
+                        title: "Sold Items",
+                        value: stats['soldCount'].toString(),
+                        icon: Icons.sell,
+                        color: Colors.orange,
+                        onTap: () => _navigateToItemsList(context, true),
+                      ),
                     ),
                   ],
                 ),
                 const SizedBox(height: 16),
                 Row(
                   children: [
-                    _buildStatCard(
-                      title: "Available Value",
-                      value: "₹${stats['availableValue'].toStringAsFixed(2)}",
-                      icon: Icons.account_balance_wallet,
-                      color: Colors.blue,
+                    Expanded(
+                      child: _buildStatCard(
+                        title: "Available Value",
+                        value: "₹${stats['availableValue'].toStringAsFixed(2)}",
+                        icon: Icons.account_balance_wallet,
+                        color: Colors.blue,
+                      ),
                     ),
                     const SizedBox(width: 12),
-                    _buildStatCard(
-                      title: "Sold This Month",
-                      value: stats['soldThisMonth'].toString(),
-                      icon: Icons.calendar_today,
-                      color: Colors.purple,
+                    Expanded(
+                      child: _buildStatCard(
+                        title: "Sold This Month",
+                        value: stats['soldThisMonth'].toString(),
+                        icon: Icons.calendar_today,
+                        color: Colors.purple,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 16),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    SizedBox(
+                      width: MediaQuery.of(context).size.width * 0.5,
+                      child: _buildStatCard(
+                        title: "Total Profit",
+                        value: "₹${stats['profit'].toStringAsFixed(2)}",
+                        icon: Icons.trending_up,
+                        color: Colors.teal,
+                      ),
                     ),
                   ],
                 ),
@@ -126,26 +159,26 @@ class ReportsScreen extends StatelessWidget {
     required Color color,
     VoidCallback? onTap,
   }) {
-    return Expanded(
-      child: GestureDetector(
-        onTap: onTap,
-        child: Card(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-          elevation: 4,
-          child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              children: [
-                Icon(icon, size: 32, color: color),
-                const SizedBox(height: 8),
-                Text(value, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
-                const SizedBox(height: 4),
-                Text(title, style: const TextStyle(fontSize: 14)),
-              ],
-            ),
-          ),
+    final card = Card(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      elevation: 4,
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, size: 32, color: color),
+            const SizedBox(height: 8),
+            Text(value, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+            const SizedBox(height: 4),
+            Text(title, style: const TextStyle(fontSize: 14)),
+          ],
         ),
       ),
     );
+
+    return onTap != null
+        ? GestureDetector(onTap: onTap, child: card)
+        : card;
   }
 }

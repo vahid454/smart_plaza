@@ -1,9 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:image_picker/image_picker.dart';
-import 'dart:io';
 import 'package:intl/intl.dart';
-
+import 'package:mobile_scanner/mobile_scanner.dart';
+import 'package:permission_handler/permission_handler.dart';
 
 class AddItemScreen extends StatefulWidget {
   @override
@@ -13,7 +12,7 @@ class AddItemScreen extends StatefulWidget {
 class _AddItemScreenState extends State<AddItemScreen> {
   final _formKey = GlobalKey<FormState>();
   final _firestore = FirebaseFirestore.instance;
-  
+
   // Form controllers
   final _nameController = TextEditingController();
   final _imeiController = TextEditingController();
@@ -22,20 +21,8 @@ class _AddItemScreenState extends State<AddItemScreen> {
   final _purchaseDateController = TextEditingController();
   final _purchasePartyController = TextEditingController();
   final _remarksController = TextEditingController();
-  
-  File? _imageFile;
-  final ImagePicker _picker = ImagePicker();
 
   bool _isSaving = false;
-
-  Future<void> _pickImage() async {
-    final pickedFile = await _picker.pickImage(source: ImageSource.gallery, imageQuality: 80);
-    if (pickedFile != null) {
-      setState(() {
-        _imageFile = File(pickedFile.path);
-      });
-    }
-  }
 
   Future<void> _saveItem() async {
     if (_formKey.currentState!.validate()) {
@@ -54,7 +41,7 @@ class _AddItemScreenState extends State<AddItemScreen> {
           'sellDate': '',
           'sellParty': '',
           'remarks': _remarksController.text.trim(),
-          'imageUrl': '', // TODO: Upload image to Firebase Storage & get URL
+          'imageUrl': '',
           'createdAt': FieldValue.serverTimestamp(),
           'isSold': false,
         });
@@ -73,50 +60,77 @@ class _AddItemScreenState extends State<AddItemScreen> {
     }
   }
 
+Future<void> _scanIMEI() async {
+  final status = await Permission.camera.request();
+  if (!status.isGranted) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Camera permission is required for scanning')),
+    );
+    return;
+  }
+
+  final controller = MobileScannerController();
+
+  bool isScanned = false;
+
+  final scannedCode = await Navigator.push<String>(
+    context,
+    MaterialPageRoute(
+      builder: (context) => Scaffold(
+        appBar: AppBar(
+          title: const Text('Scan IMEI'),
+          actions: [
+            IconButton(
+              icon: const Icon(Icons.flash_on),
+              onPressed: () => controller.toggleTorch(),
+            ),
+          ],
+        ),
+        body: MobileScanner(
+          controller: controller,
+          onDetect: (barcodeCapture) {
+            final barcode = barcodeCapture.barcodes.first;
+            final value = barcode.rawValue;
+            if (!isScanned && value != null && value.isNotEmpty) {
+              isScanned = true;
+              controller.dispose();
+              Navigator.pop(context, value);
+            }
+          },
+        ),
+      ),
+    ),
+  );
+
+  if (scannedCode != null && scannedCode != '-1') {
+    setState(() {
+      _imeiController.text = scannedCode;
+    });
+  }
+}
+
+
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
-      onTap: () => FocusScope.of(context).unfocus(), // Dismiss keyboard on tap outside
+      onTap: () => FocusScope.of(context).unfocus(),
       child: Scaffold(
-        appBar: AppBar(title: Text('Add New Item')),
+        appBar: AppBar(
+          title: Text('Add New Item'),
+          actions: [
+            IconButton(
+              icon: Icon(Icons.qr_code_scanner),
+              onPressed: _scanIMEI,
+              tooltip: 'Scan IMEI',
+            ),
+          ],
+        ),
         body: SingleChildScrollView(
           padding: EdgeInsets.symmetric(horizontal: 20, vertical: 24),
           child: Form(
             key: _formKey,
             child: Column(
               children: [
-                // Image picker with border and icon overlay
-                Stack(
-                  alignment: Alignment.bottomRight,
-                  children: [
-                    CircleAvatar(
-                      radius: 60,
-                      backgroundColor: Colors.grey[200],
-                      backgroundImage: _imageFile != null ? FileImage(_imageFile!) : null,
-                      child: _imageFile == null 
-                        ? Icon(Icons.camera_alt_outlined, size: 48, color: Colors.grey[600])
-                        : null,
-                    ),
-                    Positioned(
-                      bottom: 4,
-                      right: 4,
-                      child: InkWell(
-                        onTap: _pickImage,
-                        borderRadius: BorderRadius.circular(20),
-                        child: Container(
-                          padding: EdgeInsets.all(6),
-                          decoration: BoxDecoration(
-                            color: Theme.of(context).primaryColor,
-                            shape: BoxShape.circle,
-                          ),
-                          child: Icon(Icons.edit, size: 20, color: Colors.white),
-                        ),
-                      ),
-                    )
-                  ],
-                ),
-                SizedBox(height: 30),
-
                 // Name
                 TextFormField(
                   controller: _nameController,
@@ -129,15 +143,32 @@ class _AddItemScreenState extends State<AddItemScreen> {
                 ),
                 SizedBox(height: 16),
 
-                // IMEI
-                TextFormField(
-                  controller: _imeiController,
-                  decoration: InputDecoration(
-                    labelText: 'IMEI Number',
-                    prefixIcon: Icon(Icons.numbers),
-                    border: OutlineInputBorder(),
-                  ),
-                  keyboardType: TextInputType.number,
+                // IMEI with scan button
+                Row(
+                  children: [
+                    Expanded(
+                      child: TextFormField(
+                        controller: _imeiController,
+                        decoration: InputDecoration(
+                          labelText: 'IMEI Number',
+                          prefixIcon: Icon(Icons.numbers),
+                          border: OutlineInputBorder(),
+                        ),
+                        keyboardType: TextInputType.number,
+                      ),
+                    ),
+                    SizedBox(width: 8),
+                    IconButton(
+                      icon: Icon(Icons.qr_code_scanner),
+                      onPressed: _scanIMEI,
+                      tooltip: 'Scan IMEI',
+                      style: IconButton.styleFrom(
+                        backgroundColor: Theme.of(context).primaryColor,
+                        foregroundColor: Colors.white,
+                        padding: EdgeInsets.all(16),
+                      ),
+                    ),
+                  ],
                 ),
                 SizedBox(height: 16),
 
@@ -169,7 +200,7 @@ class _AddItemScreenState extends State<AddItemScreen> {
                 ),
                 SizedBox(height: 16),
 
-                // Purchase Date with date picker
+                // Purchase Date
                 TextFormField(
                   controller: _purchaseDateController,
                   readOnly: true,
@@ -218,7 +249,7 @@ class _AddItemScreenState extends State<AddItemScreen> {
 
                 SizedBox(height: 32),
 
-                // Save button with loading indicator
+                // Save Button
                 SizedBox(
                   width: double.infinity,
                   height: 50,
