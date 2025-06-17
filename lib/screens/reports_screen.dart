@@ -14,22 +14,47 @@ class ShopkeeperSelectionScreen extends StatelessWidget {
         builder: (context, snapshot) {
           if (!snapshot.hasData) return const Center(child: CircularProgressIndicator());
           final shopkeepers = snapshot.data!;
-          return ListView(
+          if (shopkeepers.isEmpty) {
+            return const Center(
+              child: Text(
+                "No shopkeepers found.",
+                style: TextStyle(fontSize: 18, color: Colors.grey),
+              ),
+            );
+          }
+          return ListView.builder(
             padding: const EdgeInsets.all(16),
-            children: shopkeepers.map((name) {
-              return ListTile(
-                title: Text(name),
-                trailing: const Icon(Icons.arrow_forward),
-                onTap: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (_) => ReportsScreen(shopkeeperName: name),
+            itemCount: shopkeepers.length,
+            itemBuilder: (context, index) {
+              final name = shopkeepers[index];
+              return Card(
+                elevation: 6,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                margin: const EdgeInsets.symmetric(vertical: 8),
+                child: ListTile(
+                  leading: CircleAvatar(
+                    backgroundColor: Colors.teal,
+                    child: Text(
+                      name[0].toUpperCase(),
+                      style: const TextStyle(color: Colors.white),
                     ),
-                  );
-                },
+                  ),
+                  title: Text(
+                    name,
+                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
+                  ),
+                  trailing: const Icon(Icons.arrow_forward_ios, color: Colors.teal),
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => ReportsScreen(shopkeeperName: name),
+                      ),
+                    );
+                  },
+                ),
               );
-            }).toList(),
+            },
           );
         },
       ),

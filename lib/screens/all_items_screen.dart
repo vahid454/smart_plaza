@@ -22,17 +22,22 @@ class AllItemsScreen extends StatelessWidget {
         final role = userData?['role'] ?? '';
         final isShopkeeper = role == 'shopkeeper';
         final shopkeeperId = currentUser?.uid;
+        final isOwner = role == 'owner';
 
         return Scaffold(
           appBar: AppBar(title: Text(showOnlyUnsold ? 'Sell Item - Select Unsold Item' : 'All Items')),
           body: StreamBuilder<QuerySnapshot>(
-            stream: FirebaseFirestore.instance.collection('inventory').snapshots(),
+            stream: isShopkeeper
+                ? FirebaseFirestore.instance.collection('inventory').snapshots()
+                : isOwner
+                    ? FirebaseFirestore.instance
+                        .collection('inventory')
+                        .where('ownerId', isEqualTo: currentUser?.uid)
+                        .snapshots()
+                    : FirebaseFirestore.instance.collection('inventory').snapshots(),
             builder: (context, snapshot) {
-              if (snapshot.connectionState == ConnectionState.waiting) {
+              if (!snapshot.hasData) {
                 return const Center(child: CircularProgressIndicator());
-              }
-              if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
-                return const Center(child: Text('No items found'));
               }
 
               // Categorize items
@@ -59,6 +64,10 @@ class AllItemsScreen extends StatelessWidget {
                 } else {
                   soldPaidItems.add(doc);
                 }
+              }
+
+              if (availableItems.isEmpty && soldPendingPaymentItems.isEmpty && soldPaidItems.isEmpty) {
+                return const Center(child: Text('No items found'));
               }
 
               // Sort sold items by date (assuming there's a 'saleDate' field)

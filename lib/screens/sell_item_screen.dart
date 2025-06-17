@@ -107,6 +107,16 @@ class _SellItemScreenState extends State<SellItemScreen> {
   Future<void> _sellItem() async {
     if (!_formKey.currentState!.validate()) return;
 
+    final currentUserId = FirebaseAuth.instance.currentUser?.uid;
+    final ownerId = widget.itemData['ownerId'];
+
+    if (userRole == 'owner' && ownerId != currentUserId) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('You are not authorized to sell this item.')),
+      );
+      return;
+    }
+
     try {
       // Prepare update data map
       Map<String, dynamic> updateData = {
@@ -142,163 +152,196 @@ class _SellItemScreenState extends State<SellItemScreen> {
 
     if (userRole == null) {
       return Scaffold(
-        appBar: AppBar(title: const Text('Invalid Role')),
+        appBar: AppBar(title: const Text('Checking Role')),
         body: const Center(child: CircularProgressIndicator()),
+      );
+    }
+
+    if (userRole == 'shopkeeper' && (widget.itemData.isEmpty || widget.itemData['name'] == null)) {
+      return Scaffold(
+        appBar: AppBar(title: const Text('Sell Item')),
+        body: const Center(
+          child: Text(
+            'No item found.',
+            style: TextStyle(fontSize: 16, color: Colors.grey),
+          ),
+        ),
       );
     }
 
     return Scaffold(
       appBar: AppBar(title: const Text('Sell Item')),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16),
-        child: Form(
-          key: _formKey,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // Item Info
-              Card(
-                elevation: 3,
-                margin: const EdgeInsets.only(bottom: 16),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                child: Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'Item: ${widget.itemData['name'] ?? 'Unnamed'}',
-                        style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                      ),
-                      const SizedBox(height: 6),
-                      Text('IMEI: ${widget.itemData['imei'] ?? 'N/A'}'),
-                    ],
-                  ),
-                ),
-              ),
-
-              // Sell Details
-              Card(
-                elevation: 3,
-                margin: const EdgeInsets.only(bottom: 16),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                child: Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text('Sell Details', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-                      const SizedBox(height: 12),
-                      TextFormField(
-                        controller: _sellPriceController,
-                        decoration: const InputDecoration(
-                          labelText: 'Sell Price*',
-                          prefixIcon: Icon(Icons.attach_money),
-                        ),
-                        keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                        validator: (value) {
-                          if (value == null || value.trim().isEmpty) return 'Required';
-                          final n = num.tryParse(value);
-                          if (n == null) return 'Enter a valid number';
-                          if (n <= 0) return 'Price must be greater than zero';
-                          return null;
-                        },
-                      ),
-                      const SizedBox(height: 12),
-                      TextFormField(
-                        controller: _sellDateController,
-                        decoration: const InputDecoration(
-                          labelText: 'Sell Date*',
-                          prefixIcon: Icon(Icons.calendar_today),
-                        ),
-                        readOnly: true,
-                        onTap: () => _pickDate(_sellDateController),
-                        validator: (value) => (value == null || value.isEmpty) ? 'Required' : null,
-                      ),
-                      const SizedBox(height: 12),
-                      TextFormField(
-                        controller: _sellPartyController,
-                        decoration: const InputDecoration(
-                          labelText: 'Sell Party*',
-                          prefixIcon: Icon(Icons.person),
-                        ),
-                        validator: (value) => (value == null || value.trim().isEmpty) ? 'Required' : null,
-                      ),
-                      const SizedBox(height: 12),
-                      TextFormField(
-                        controller: _remarksController,
-                        decoration: const InputDecoration(
-                          labelText: 'Remarks',
-                          prefixIcon: Icon(Icons.notes),
-                        ),
-                        maxLines: 3,
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-
-              if (userRole == 'owner')
-                Card(
-                  elevation: 3,
-                  margin: const EdgeInsets.only(bottom: 16),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+      body: SafeArea(
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            return SingleChildScrollView(
+              child: ConstrainedBox(
+                constraints: BoxConstraints(minHeight: constraints.maxHeight),
+                child: IntrinsicHeight(
                   child: Padding(
                     padding: const EdgeInsets.all(16),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Text('Payment Information (Optional)', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-                        const SizedBox(height: 12),
-                        DropdownButtonFormField<String>(
-                          decoration: const InputDecoration(
-                            labelText: 'Payment Mode',
-                            prefixIcon: Icon(Icons.payment),
+                    child: Form(
+                      key: _formKey,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Flexible(fit: FlexFit.loose,
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                              // Item Info
+                              Card(
+                                elevation: 3,
+                                margin: const EdgeInsets.only(bottom: 16),
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                                child: Padding(
+                                  padding: const EdgeInsets.all(16),
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        'Item: ${widget.itemData['name'] ?? 'Unnamed'}',
+                                        style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                                      ),
+                                      const SizedBox(height: 6),
+                                      Text('IMEI: ${widget.itemData['imei'] ?? 'N/A'}'),
+                                    ],
+                                  ),
+                                ),
+                              ),
+
+                              // Sell Details
+                              Card(
+                                elevation: 3,
+                                margin: const EdgeInsets.only(bottom: 16),
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                                child: Padding(
+                                  padding: const EdgeInsets.all(16),
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      const Text('Sell Details', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                                      const SizedBox(height: 12),
+                                      TextFormField(
+                                        controller: _sellPriceController,
+                                        decoration: const InputDecoration(
+                                          labelText: 'Sell Price*',
+                                          prefixIcon: Icon(Icons.attach_money),
+                                        ),
+                                        keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                                        validator: (value) {
+                                          if (value == null || value.trim().isEmpty) return 'Required';
+                                          final n = num.tryParse(value);
+                                          if (n == null) return 'Enter a valid number';
+                                          if (n <= 0) return 'Price must be greater than zero';
+                                          return null;
+                                        },
+                                      ),
+                                      const SizedBox(height: 12),
+                                      TextFormField(
+                                        controller: _sellDateController,
+                                        decoration: const InputDecoration(
+                                          labelText: 'Sell Date*',
+                                          prefixIcon: Icon(Icons.calendar_today),
+                                        ),
+                                        readOnly: true,
+                                        onTap: () => _pickDate(_sellDateController),
+                                        validator: (value) => (value == null || value.isEmpty) ? 'Required' : null,
+                                      ),
+                                      const SizedBox(height: 12),
+                                      TextFormField(
+                                        controller: _sellPartyController,
+                                        decoration: const InputDecoration(
+                                          labelText: 'Sell Party*',
+                                          prefixIcon: Icon(Icons.person),
+                                        ),
+                                        validator: (value) => (value == null || value.trim().isEmpty) ? 'Required' : null,
+                                      ),
+                                      const SizedBox(height: 12),
+                                      TextFormField(
+                                        controller: _remarksController,
+                                        decoration: const InputDecoration(
+                                          labelText: 'Remarks',
+                                          prefixIcon: Icon(Icons.notes),
+                                        ),
+                                        maxLines: 3,
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ),
+
+                              if (userRole == 'owner')
+                                Card(
+                                  elevation: 3,
+                                  margin: const EdgeInsets.only(bottom: 16),
+                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                                  child: Padding(
+                                    padding: const EdgeInsets.all(16),
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        const Text('Payment Information (Optional)', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                                        const SizedBox(height: 12),
+                                        DropdownButtonFormField<String>(
+                                          decoration: const InputDecoration(
+                                            labelText: 'Payment Mode',
+                                            prefixIcon: Icon(Icons.payment),
+                                          ),
+                                          items: ['Cash', 'UPI', 'Card', 'Other']
+                                              .map((mode) => DropdownMenuItem(value: mode, child: Text(mode)))
+                                              .toList(),
+                                          value: _selectedPaymentMode,
+                                          onChanged: (val) => setState(() => _selectedPaymentMode = val),
+                                          isExpanded: true,
+                                        ),
+                                        const SizedBox(height: 12),
+                                        TextFormField(
+                                          controller: _paymentDateController,
+                                          decoration: const InputDecoration(
+                                            labelText: 'Payment Date',
+                                            prefixIcon: Icon(Icons.calendar_today),
+                                          ),
+                                          readOnly: true,
+                                          onTap: () => _pickDate(_paymentDateController),
+                                        ),
+                                        const SizedBox(height: 12),
+                                        TextFormField(
+                                          controller: _paymentRemarksController,
+                                          decoration: const InputDecoration(
+                                            labelText: 'Payment Remarks',
+                                            prefixIcon: Icon(Icons.note_add),
+                                          ),
+                                          maxLines: 2,
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                            ],
                           ),
-                          items: ['Cash', 'UPI', 'Card', 'Other']
-                              .map((mode) => DropdownMenuItem(value: mode, child: Text(mode)))
-                              .toList(),
-                          value: _selectedPaymentMode,
-                          onChanged: (val) => setState(() => _selectedPaymentMode = val),
-                          isExpanded: true,
-                        ),
-                        const SizedBox(height: 12),
-                        TextFormField(
-                          controller: _paymentDateController,
-                          decoration: const InputDecoration(
-                            labelText: 'Payment Date',
-                            prefixIcon: Icon(Icons.calendar_today),
                           ),
-                          readOnly: true,
-                          onTap: () => _pickDate(_paymentDateController),
-                        ),
-                        const SizedBox(height: 12),
-                        TextFormField(
-                          controller: _paymentRemarksController,
-                          decoration: const InputDecoration(
-                            labelText: 'Payment Remarks',
-                            prefixIcon: Icon(Icons.note_add),
+                          SizedBox(height: 24),
+                          SizedBox(
+                            width: double.infinity,
+                            child: ElevatedButton(
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: Colors.green,
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                                padding: const EdgeInsets.symmetric(vertical: 16),
+                              ),
+                              onPressed: _sellItem,
+                              child: const Text('Sell Item', style: TextStyle(fontSize: 18, color: Colors.white)),
+                            ),
                           ),
-                          maxLines: 2,
-                        ),
-                      ],
+                        ],
+                      ),
                     ),
                   ),
                 ),
-
-              // Sell Button
-              SizedBox(
-                width: double.infinity,
-                child: ElevatedButton(
-                  onPressed: _sellItem,
-                  child: const Padding(
-                    padding: EdgeInsets.symmetric(vertical: 14),
-                    child: Text('Sell Item', style: TextStyle(fontSize: 16)),
-                  ),
-                ),
               ),
-            ],
-          ),
+            );
+          },
         ),
       ),
     );

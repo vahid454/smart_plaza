@@ -338,6 +338,7 @@ Future<void> _scanIMEI() async {
                         ? const CircularProgressIndicator(color: Colors.white)
                         : const Text('Save Item', style: TextStyle(fontSize: 18)),
                     style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.green,
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                     ),
                   ),
