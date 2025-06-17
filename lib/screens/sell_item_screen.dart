@@ -41,32 +41,37 @@ class _SellItemScreenState extends State<SellItemScreen> {
   void initState() {
     super.initState();
     fetchUserRole();
-
-
-  // Prevent opening if already sold
-  if (widget.itemData['isSold'] == true) {
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      Navigator.pop(context);
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('This item is already sold.')),
-      );
-    });
-    return;
   }
 
-    // Initialize payment and remarks fields from existing data (if any)
-    _remarksController.text = widget.itemData['remarks'] ?? '';
-    _selectedPaymentMode = widget.itemData['paymentMode'];
-    _paymentDateController.text = widget.itemData['paymentDate'] ?? '';
-    _paymentRemarksController.text = widget.itemData['paymentRemarks'] ?? '';
-  }
-  
   Future<void> fetchUserRole() async {
     if (uid != null) {
       final doc = await FirebaseFirestore.instance.collection('users').doc(uid).get();
+      final role = doc.data()?['role'];
       setState(() {
-        userRole = doc.data()?['role'];
+        userRole = role;
       });
+
+      final currentUserId = FirebaseAuth.instance.currentUser?.uid;
+      final isSold = widget.itemData['isSold'] == true;
+      final shopkeeperId = (widget.itemData['shopkeeper'] as Map?)?['id'];
+
+      if (isSold || (role == 'shopkeeper' && shopkeeperId != currentUserId)) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          Navigator.pop(context);
+          final message = isSold
+              ? 'This item is already sold.'
+              : 'You are not authorized to sell this item.';
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(message)),
+          );
+        });
+      } else {
+        // Initialize payment and remarks fields from existing data (if any)
+        _remarksController.text = widget.itemData['remarks'] ?? '';
+        _selectedPaymentMode = widget.itemData['paymentMode'];
+        _paymentDateController.text = widget.itemData['paymentDate'] ?? '';
+        _paymentRemarksController.text = widget.itemData['paymentRemarks'] ?? '';
+      }
     }
   }
 

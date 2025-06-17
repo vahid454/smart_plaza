@@ -2,18 +2,82 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:smart_plaza/screens/filtered_items_screen.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 
-class ReportsScreen extends StatelessWidget {
-  final Function(String, Map<String, dynamic>)? onItemSelect;
+class ShopkeeperSelectionScreen extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: const Text("Select Shopkeeper")),
+      body: FutureBuilder<List<String>>(
+        future: _fetchShopkeepers(),
+        builder: (context, snapshot) {
+          if (!snapshot.hasData) return const Center(child: CircularProgressIndicator());
+          final shopkeepers = snapshot.data!;
+          return ListView(
+            padding: const EdgeInsets.all(16),
+            children: shopkeepers.map((name) {
+              return ListTile(
+                title: Text(name),
+                trailing: const Icon(Icons.arrow_forward),
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => ReportsScreen(shopkeeperName: name),
+                    ),
+                  );
+                },
+              );
+            }).toList(),
+          );
+        },
+      ),
+    );
+  }
 
-  ReportsScreen({this.onItemSelect});
+  Future<List<String>> _fetchShopkeepers() async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) return [];
 
-  Future<Map<String, dynamic>> _fetchStats() async {
+    final snapshot = await FirebaseFirestore.instance
+        .collection('users')
+        .where('ownerId', isEqualTo: user.uid)
+        .get();
+
+    final shopkeepers = <String>{};
+    for (var doc in snapshot.docs) {
+      final data = doc.data();
+      final name = data['username'] ?? data['name'];
+      if (name != null) {
+        shopkeepers.add(name.toString());
+      }
+    }
+    return shopkeepers.toList();
+  }
+}
+
+class ReportsScreen extends StatefulWidget {
+  final String shopkeeperName;
+
+  ReportsScreen({required this.shopkeeperName});
+
+  @override
+  _ReportsScreenState createState() => _ReportsScreenState();
+}
+
+class _ReportsScreenState extends State<ReportsScreen> {
+
+  Future<Map<String, dynamic>> _fetchStats(String shopkeeper) async {
     final now = DateTime.now();
     final startOfMonth = DateTime(now.year, now.month, 1);
     final formatter = DateFormat('yyyy-MM-dd');
 
-    final snapshot = await FirebaseFirestore.instance.collection('inventory').get();
+    final snapshot = await FirebaseFirestore.instance
+        .collection('inventory')
+        .where('shopkeeper.name', isEqualTo: shopkeeper)
+        .get();
+
     final allDocs = snapshot.docs;
 
     int availableCount = 0;
@@ -23,6 +87,7 @@ class ReportsScreen extends StatelessWidget {
 
     double totalPurchaseCost = 0;
     double totalPaymentAmount = 0;
+    double pendingPaymentsAmount = 0;
 
     for (var doc in allDocs) {
       final data = doc.data();
@@ -30,11 +95,9 @@ class ReportsScreen extends StatelessWidget {
       if ((data['isSold'] ?? false) == true) {
         soldCount++;
 
-        // Sum profit-related values
         totalPurchaseCost += (data['purchasePrice'] ?? 0).toDouble();
         totalPaymentAmount += (data['paymentAmount'] ?? 0).toDouble();
 
-        // Check if sold this month
         final soldDate = data['sellDate'];
         if (soldDate != null) {
           try {
@@ -44,13 +107,25 @@ class ReportsScreen extends StatelessWidget {
             }
           } catch (_) {}
         }
+
+        if ((data['isSold'] ?? false) == true && (data['paymentAmount'] ?? 0) == 0) {
+          pendingPaymentsAmount += (data['purchasePrice'] ?? 0).toDouble();
+        }
       } else {
         availableCount++;
         availableValue += (data['purchasePrice'] ?? 0).toDouble();
       }
     }
 
-    double profit = totalPaymentAmount - totalPurchaseCost;
+    double profit = 0;
+    for (var doc in allDocs) {
+      final data = doc.data();
+      if ((data['isSold'] ?? false) == true && (data['paymentAmount'] ?? 0) > 0) {
+        final payment = (data['paymentAmount'] ?? 0).toDouble();
+        final purchase = (data['purchasePrice'] ?? 0).toDouble();
+        profit += payment - purchase;
+      }
+    }
 
     return {
       'availableCount': availableCount,
@@ -58,6 +133,7 @@ class ReportsScreen extends StatelessWidget {
       'availableValue': availableValue,
       'soldThisMonth': soldThisMonth,
       'profit': profit,
+      'pendingPaymentsAmount': pendingPaymentsAmount,
     };
   }
 
@@ -65,7 +141,10 @@ class ReportsScreen extends StatelessWidget {
     Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (_) => FilteredItemsScreen(isSold: soldStatus),
+        builder: (_) => FilteredItemsScreen(
+          isSold: soldStatus,
+          shopkeeperName: widget.shopkeeperName,
+        ),
       ),
     );
   }
@@ -73,9 +152,9 @@ class ReportsScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text("Reports")),
+      appBar: AppBar(title: Text("Reports for ${widget.shopkeeperName}")),
       body: FutureBuilder<Map<String, dynamic>>(
-        future: _fetchStats(),
+        future: _fetchStats(widget.shopkeeperName),
         builder: (context, snapshot) {
           if (!snapshot.hasData) return const Center(child: CircularProgressIndicator());
 
@@ -131,11 +210,18 @@ class ReportsScreen extends StatelessWidget {
                 ),
                 const SizedBox(height: 16),
                 Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    SizedBox(
-                      width: MediaQuery.of(context).size.width * 0.5,
+                    Expanded(
                       child: _buildStatCard(
+                        title: "Pending Payments",
+                        value: "₹${stats['pendingPaymentsAmount'].toStringAsFixed(2)}",
+                        icon: Icons.pending_actions,
+                        color: Colors.red,
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                    child: _buildStatCard(
                         title: "Total Profit",
                         value: "₹${stats['profit'].toStringAsFixed(2)}",
                         icon: Icons.trending_up,

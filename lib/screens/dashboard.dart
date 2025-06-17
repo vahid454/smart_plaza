@@ -105,7 +105,7 @@ class _DashboardState extends State<Dashboard> {
                                 () {
                                   Navigator.push(
                                     context,
-                                    MaterialPageRoute(builder: (_) => ReportsScreen()),
+                                    MaterialPageRoute(builder: (_) => ShopkeeperSelectionScreen()),
                                   );
                                 },
                               ),

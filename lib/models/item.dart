@@ -1,4 +1,3 @@
-
 // Your existing Item class with isSold getter
 class Item {
   final String? id;
@@ -18,6 +17,8 @@ class Item {
   final String? paymentDate;
   final double? paymentAmount;
   final String? paymentRemarks;
+  final String? owner;
+  final String? shopkeeper;
 
   Item({
     this.id,
@@ -37,6 +38,8 @@ class Item {
     this.paymentDate,
     this.paymentAmount,
     this.paymentRemarks,
+    this.owner,
+    this.shopkeeper,
   });
 
   bool get isSold => sellingDate != null;
@@ -63,9 +66,10 @@ class Item {
       paymentAmount:
           (map['paymentAmount'] != null) ? (map['paymentAmount'] as num).toDouble() : null,
       paymentRemarks: map['paymentRemarks'] as String?,
+      owner: map['owner'] as String?,
+      shopkeeper: map['shopkeeper'] as String?,
     );
   }
-}
 
   Map<String, dynamic> toMap() {
     return {
@@ -85,6 +89,8 @@ class Item {
       'paymentDate': paymentDate,
       'paymentAmount': paymentAmount,
       'paymentRemarks': paymentRemarks,
+      'owner': owner,
+      'shopkeeper': shopkeeper,
     };
   }
 }

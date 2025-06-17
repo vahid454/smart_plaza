@@ -4,8 +4,13 @@ import 'package:intl/intl.dart';
 
 class FilteredItemsScreen extends StatelessWidget {
   final bool isSold;
+  final String? shopkeeperName;
 
-  const FilteredItemsScreen({super.key, required this.isSold});
+  const FilteredItemsScreen({
+    super.key,
+    required this.isSold,
+    this.shopkeeperName,
+  });
 
   void _showPaymentDialog(BuildContext context, DocumentSnapshot doc) {
     final data = doc.data() as Map<String, dynamic>;
@@ -93,15 +98,20 @@ class FilteredItemsScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Build the Firestore query stream, optionally filtering by shopkeeperName
+    var collectionRef = FirebaseFirestore.instance.collection('inventory');
+    var query = collectionRef.where('isSold', isEqualTo: isSold);
+    if (shopkeeperName != null && shopkeeperName!.isNotEmpty) {
+      query = query.where('shopkeeper.name', isEqualTo: shopkeeperName);
+    }
+    Stream<QuerySnapshot> stream = query.snapshots();
+
     return Scaffold(
       appBar: AppBar(
         title: Text(isSold ? "Sold Items" : "Available Items"),
       ),
       body: StreamBuilder<QuerySnapshot>(
-        stream: FirebaseFirestore.instance
-            .collection('inventory')
-            .where('isSold', isEqualTo: isSold)
-            .snapshots(),
+        stream: stream,
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
             return const Center(child: CircularProgressIndicator());
