@@ -27,6 +27,13 @@ class _LoginScreenState extends State<LoginScreen> {
       );
 
       if (credential.user != null) {
+        if (!credential.user!.emailVerified) {
+          await FirebaseAuth.instance.signOut();
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text("Please verify your email before logging in.")),
+          );
+          return;
+        }
         final doc = await FirebaseFirestore.instance
             .collection('users')
             .doc(credential.user!.uid)

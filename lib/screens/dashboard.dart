@@ -6,6 +6,7 @@ import 'package:smart_plaza/screens/add_item_screen.dart';
 import 'package:smart_plaza/screens/all_items_screen.dart';
 import 'package:smart_plaza/screens/reports_screen.dart';
 import 'package:smart_plaza/screens/sell_item_screen.dart';
+import 'package:smart_plaza/screens/login_screen.dart';
 
 class Dashboard extends StatefulWidget {
   const Dashboard({super.key});
@@ -232,7 +233,11 @@ class _DashboardState extends State<Dashboard> {
     if (shouldLogout ?? false) {
       try {
         await FirebaseAuth.instance.signOut();
-        SystemNavigator.pop(); // Close the app after logout
+        Navigator.pushAndRemoveUntil(
+          context,
+          MaterialPageRoute(builder: (_) => LoginScreen()),
+          (route) => false,
+        );
       } catch (e) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text("Logout failed: ${e.toString()}")),
