@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:excel/excel.dart';
+import 'package:excel/excel.dart' as excel;
 import 'dart:io';
 import 'package:device_info_plus/device_info_plus.dart';
 import 'package:path_provider/path_provider.dart';
@@ -20,6 +20,7 @@ class AllItemsScreen extends StatefulWidget {
 
 class _AllItemsScreenState extends State<AllItemsScreen> {
   List<QueryDocumentSnapshot> _allItems = [];
+  bool _loading = true;
 
   @override
   Widget build(BuildContext context) {
@@ -57,124 +58,130 @@ class _AllItemsScreenState extends State<AllItemsScreen> {
                         .snapshots()
                     : FirebaseFirestore.instance.collection('inventory').snapshots(),
             builder: (context, snapshot) {
-              if (!snapshot.hasData) {
-                return const Center(child: CircularProgressIndicator());
-              }
+              // Step 1: Handle loader state based on snapshot and item readiness
+              bool showLoading = false;
+              List<QueryDocumentSnapshot> availableItems = [];
+              List<QueryDocumentSnapshot> soldPendingPaymentItems = [];
+              List<QueryDocumentSnapshot> soldPaidItems = [];
+              List<QueryDocumentSnapshot> allItems = [];
 
-              // Categorize items
-              final List<QueryDocumentSnapshot> availableItems = [];
-              final List<QueryDocumentSnapshot> soldPendingPaymentItems = [];
-              final List<QueryDocumentSnapshot> soldPaidItems = [];
-
-              for (final doc in snapshot.data!.docs) {
-                final data = doc.data() as Map<String, dynamic>;
-
-                // Filter for shopkeeper
-                final docShopkeeperId = (data['shopkeeper'] as Map?)?['id'];
-                if (isShopkeeper && docShopkeeperId != shopkeeperId) continue;
-
-                final isSold = data['isSold'] ?? false;
-                final paymentMode = data['paymentMode'] ?? '';
-                final paymentDate = data['paymentDate'] ?? '';
-                final isPaid = paymentMode.isNotEmpty && paymentDate.isNotEmpty;
-
-                if (!isSold) {
-                  availableItems.add(doc);
-                } else if (isSold && !isPaid) {
-                  soldPendingPaymentItems.add(doc);
-                } else {
-                  soldPaidItems.add(doc);
-                }
-              }
-
-              if (availableItems.isEmpty && soldPendingPaymentItems.isEmpty && soldPaidItems.isEmpty) {
-                return const Center(child: Text('No items found'));
-              }
-
-              // Sort sold items by date (assuming there's a 'saleDate' field)
-              soldPendingPaymentItems.sort((a, b) {
-                final aDate = (a.data() as Map<String, dynamic>)['saleDate'] ?? '';
-                final bDate = (b.data() as Map<String, dynamic>)['saleDate'] ?? '';
-                return bDate.compareTo(aDate); // Newest first
-              });
-
-              soldPaidItems.sort((a, b) {
-                final aDate = (a.data() as Map<String, dynamic>)['saleDate'] ?? '';
-                final bDate = (b.data() as Map<String, dynamic>)['saleDate'] ?? '';
-                return bDate.compareTo(aDate); // Newest first
-              });
-
-              // Combine all items in the desired order
-              final List<QueryDocumentSnapshot> allItems = [
-                ...availableItems,
-                ...soldPendingPaymentItems,
-                ...soldPaidItems,
-              ];
-
-              // Update state only if the items list has changed
-              if (mounted && (_allItems.length != allItems.length)) {
-                WidgetsBinding.instance.addPostFrameCallback((_) {
-                  if (mounted) {
-                    setState(() {
-                      _allItems = allItems;
-                    });
-                  }
-                });
-              }
-
-              return ListView.builder(
-                padding: const EdgeInsets.fromLTRB(8, 8, 8, 80),
-                itemCount: allItems.length,
-                itemBuilder: (context, index) {
-                  final doc = allItems[index];
+              if (snapshot.connectionState == ConnectionState.waiting || !snapshot.hasData) {
+                showLoading = true;
+              } else {
+                // Categorize items
+                for (final doc in snapshot.data!.docs) {
                   final data = doc.data() as Map<String, dynamic>;
-
+                  final docShopkeeperId = (data['shopkeeper'] as Map?)?['id'];
+                  if (isShopkeeper && docShopkeeperId != shopkeeperId) continue;
                   final isSold = data['isSold'] ?? false;
                   final paymentMode = data['paymentMode'] ?? '';
                   final paymentDate = data['paymentDate'] ?? '';
                   final isPaid = paymentMode.isNotEmpty && paymentDate.isNotEmpty;
 
-                  // Add section headers
-                  if (index == 0 ||
-                      (index == availableItems.length && availableItems.isNotEmpty) ||
-                      (index == availableItems.length + soldPendingPaymentItems.length && soldPendingPaymentItems.isNotEmpty)) {
-                    String headerText;
-                    bool isSoldPaidSection = false;
-                    if (index == 0 && availableItems.isNotEmpty) {
-                      headerText = 'Available Items';
-                      isSoldPaidSection = false;
-                    } else if (index == availableItems.length && soldPendingPaymentItems.isNotEmpty) {
-                      headerText = 'Sold - Payment Pending';
-                      isSoldPaidSection = false;
-                    } else {
-                      headerText = 'Sold - Paid';
-                      isSoldPaidSection = true;
-                    }
-
-                    return Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        Container(
-                          padding: const EdgeInsets.all(12),
-                          color: Colors.grey[200],
-                          child: Text(
-                            headerText,
-                            style: TextStyle(
-                              fontWeight: FontWeight.bold,
-                              fontSize: 16,
-                              color: Colors.grey[800],
-                            ),
-                          ),
-                        ),
-                        _buildItemCard(doc, data, isSold, isPaid, isSoldPaidSection: isSoldPaidSection, isShopkeeper: isShopkeeper),
-                      ],
-                    );
+                  if (!isSold) {
+                    availableItems.add(doc);
+                  } else if (isSold && !isPaid) {
+                    soldPendingPaymentItems.add(doc);
+                  } else {
+                    soldPaidItems.add(doc);
                   }
+                }
 
-                  // Mark 'Sold - Paid' section items for gesture dialog
-                  bool isSoldPaidSection = (index >= availableItems.length + soldPendingPaymentItems.length);
-                  return _buildItemCard(doc, data, isSold, isPaid, isSoldPaidSection: isSoldPaidSection, isShopkeeper: isShopkeeper);
-                },
+                if (availableItems.isEmpty && soldPendingPaymentItems.isEmpty && soldPaidItems.isEmpty) {
+                  // No items found, show empty state (no loader)
+                  showLoading = false;
+                  return const Center(child: Text('No items found'));
+                }
+
+                soldPendingPaymentItems.sort((a, b) {
+                  final aDate = (a.data() as Map<String, dynamic>)['saleDate'] ?? '';
+                  final bDate = (b.data() as Map<String, dynamic>)['saleDate'] ?? '';
+                  return bDate.compareTo(aDate); // Newest first
+                });
+                soldPaidItems.sort((a, b) {
+                  final aDate = (a.data() as Map<String, dynamic>)['saleDate'] ?? '';
+                  final bDate = (b.data() as Map<String, dynamic>)['saleDate'] ?? '';
+                  return bDate.compareTo(aDate); // Newest first
+                });
+                allItems = [
+                  ...availableItems,
+                  ...soldPendingPaymentItems,
+                  ...soldPaidItems,
+                ];
+
+                // Step 2: Move _loading state handling here, update _allItems and _loading synchronously
+                if (_allItems.isEmpty && allItems.isNotEmpty) {
+                  _allItems = allItems;
+                  _loading = false;
+                }
+                // Show loader only if _loading is true and _allItems is empty (i.e., initial data not yet ready)
+                showLoading = _loading && _allItems.isEmpty;
+              }
+
+              return Stack(
+                children: [
+                  ListView.builder(
+                    padding: const EdgeInsets.fromLTRB(8, 8, 8, 80),
+                    itemCount: allItems.length,
+                    itemBuilder: (context, index) {
+                      final doc = allItems[index];
+                      final data = doc.data() as Map<String, dynamic>;
+
+                      final isSold = data['isSold'] ?? false;
+                      final paymentMode = data['paymentMode'] ?? '';
+                      final paymentDate = data['paymentDate'] ?? '';
+                      final isPaid = paymentMode.isNotEmpty && paymentDate.isNotEmpty;
+
+                      // Add section headers
+                      if (index == 0 ||
+                          (index == availableItems.length && availableItems.isNotEmpty) ||
+                          (index == availableItems.length + soldPendingPaymentItems.length && soldPendingPaymentItems.isNotEmpty)) {
+                        String headerText;
+                        bool isSoldPaidSection = false;
+                        if (index == 0 && availableItems.isNotEmpty) {
+                          headerText = 'Available Items';
+                          isSoldPaidSection = false;
+                        } else if (index == availableItems.length && soldPendingPaymentItems.isNotEmpty) {
+                          headerText = 'Sold - Payment Pending';
+                          isSoldPaidSection = false;
+                        } else {
+                          headerText = 'Sold - Paid';
+                          isSoldPaidSection = true;
+                        }
+
+                        return Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.all(12),
+                              color: Colors.grey[200],
+                              child: Text(
+                                headerText,
+                                style: TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 16,
+                                  color: Colors.grey[800],
+                                ),
+                              ),
+                            ),
+                            _buildItemCard(doc, data, isSold, isPaid, isSoldPaidSection: isSoldPaidSection, isShopkeeper: isShopkeeper),
+                          ],
+                        );
+                      }
+
+                      // Mark 'Sold - Paid' section items for gesture dialog
+                      bool isSoldPaidSection = (index >= availableItems.length + soldPendingPaymentItems.length);
+                      return _buildItemCard(doc, data, isSold, isPaid, isSoldPaidSection: isSoldPaidSection, isShopkeeper: isShopkeeper);
+                    },
+                  ),
+                  if (showLoading)
+                    Positioned.fill(
+                      child: Container(
+                        color: Colors.black45,
+                        child: const Center(child: CircularProgressIndicator()),
+                      ),
+                    ),
+                ],
               );
             },
           ),
@@ -352,44 +359,44 @@ void _showChangeShopkeeperDialog(BuildContext context, String docId, Map<String,
 }
 void _exportToExcel(BuildContext context, List<QueryDocumentSnapshot> allItems) async {
   try {
-    final excel = Excel.createExcel();
-    excel.delete('Sheet1');
-    final sheet = excel['Items'];
+    final xls = excel.Excel.createExcel();
+    xls.delete('Sheet1');
+    final sheet = xls['Items'];
 
-    final headerStyle = CellStyle(
+    // --- HEADER SECTION ---
+    // Add top padding (2 empty rows, since Title goes to row 3)
+    sheet.appendRow([]);
+    sheet.appendRow([]);
+
+    // Title row (A3:J3 merged)
+    sheet.merge(excel.CellIndex.indexByString("A3"), excel.CellIndex.indexByString("J3"));
+    sheet.cell(excel.CellIndex.indexByString("A3")).value = "iStocker";
+    sheet.cell(excel.CellIndex.indexByString("A3")).cellStyle = excel.CellStyle(
       bold: true,
+      fontSize: 18,
+      horizontalAlign: excel.HorizontalAlign.Center,
       backgroundColorHex: "#FFD966",
-      fontColorHex: "#000000",
-      horizontalAlign: HorizontalAlign.Center,
     );
 
-    final dataRowHeaderStyle = CellStyle(
+    // Subtitle row (A4:J4 merged)
+    sheet.merge(excel.CellIndex.indexByString("A4"), excel.CellIndex.indexByString("J4"));
+    sheet.cell(excel.CellIndex.indexByString("A4")).value = "Empowering your inventory with intelligence";
+    sheet.cell(excel.CellIndex.indexByString("A4")).cellStyle = excel.CellStyle(
       bold: true,
-      backgroundColorHex: "#D9EAD3",
-      fontColorHex: "#000000",
-      horizontalAlign: HorizontalAlign.Center,
+      fontSize: 14,
+      horizontalAlign: excel.HorizontalAlign.Center,
+      backgroundColorHex: "#FFE599",
     );
 
-    final rowStyle = CellStyle(
-      backgroundColorHex: "#F2F2F2",
+    // Generated On row (A5:J5 merged)
+    sheet.merge(excel.CellIndex.indexByString("A5"), excel.CellIndex.indexByString("J5"));
+    sheet.cell(excel.CellIndex.indexByString("A5")).value = "Generated On: ${DateTime.now()}";
+    sheet.cell(excel.CellIndex.indexByString("A5")).cellStyle = excel.CellStyle(
+      horizontalAlign: excel.HorizontalAlign.Center,
+      backgroundColorHex: "#D9D9D9",
     );
 
-    // Header rows
-    sheet.appendRow(["iStocker"]);
-    sheet.cell(CellIndex.indexByString("A1")).cellStyle = headerStyle;
 
-    sheet.appendRow(["Empowering your inventory with intelligence"]);
-    sheet.cell(CellIndex.indexByString("A2")).cellStyle = headerStyle;
-
-    sheet.appendRow(["Generated On: ${DateTime.now()}"]);
-    sheet.cell(CellIndex.indexByString("A3")).cellStyle = headerStyle;
-
-    // Add 2-3 empty rows after subtitle and before column headings
-    sheet.appendRow([]);
-    sheet.appendRow([]);
-    sheet.appendRow([]);
-    
-    // Column headings with clean background and bold font
     final headings = [
       'Name',
       'Serial Number',
@@ -403,16 +410,22 @@ void _exportToExcel(BuildContext context, List<QueryDocumentSnapshot> allItems) 
       'Payment Amount'
     ];
     sheet.appendRow(headings);
+    // Style header row (row 8, index 8 since 1-based)
     for (int col = 0; col < headings.length; col++) {
       final colLetter = String.fromCharCode('A'.codeUnitAt(0) + col);
-      final cell = sheet.cell(CellIndex.indexByString("${colLetter}6"));
-      cell.cellStyle = dataRowHeaderStyle;
-      sheet.setColWidth(col, 20); // Increase column width for better display
+      final cell = sheet.cell(excel.CellIndex.indexByString("${colLetter}7"));
+      cell.cellStyle = excel.CellStyle(
+        bold: true,
+        fontColorHex: "#222222",
+        backgroundColorHex: "#FFE599",
+        horizontalAlign: excel.HorizontalAlign.Center,
+      );
+      sheet.setColWidth(col, 60);
     }
 
-    // Data rows
+    // --- DATA ROWS ---
     bool alt = false;
-    int dataRowIdx = 7; // Adjusted to start below heading row at index 6
+    int dataRowIdx = 8; // Data starts at row 8(1-based)
     for (final doc in allItems) {
       final data = doc.data() as Map<String, dynamic>;
       final isSold = data['isSold'] ?? false;
@@ -428,29 +441,35 @@ void _exportToExcel(BuildContext context, List<QueryDocumentSnapshot> allItems) 
         data['paymentDate'] ?? '',
         data['paymentAmount'] ?? '',
       ];
-      // Alternate row background color
-      final altRowStyle = alt
-          ? CellStyle(backgroundColorHex: "#FFFFFF")
-          : rowStyle;
       sheet.appendRow(row);
+      // Alternate row shading
+      final rowColor = alt ? "#FFFFFF" : "#F2F2F2";
       for (int col = 0; col < row.length; col++) {
         final colLetter = String.fromCharCode('A'.codeUnitAt(0) + col);
-        sheet.cell(CellIndex.indexByString("$colLetter${dataRowIdx}")).cellStyle = altRowStyle;
+        sheet.cell(excel.CellIndex.indexByString("$colLetter${dataRowIdx}")).cellStyle = excel.CellStyle(
+          backgroundColorHex: rowColor,
+        );
       }
       alt = !alt;
       dataRowIdx++;
     }
 
-    // Add 2–3 empty rows before the final footer message
+    // --- FOOTER SECTION ---
+    // Add spacing before footer
     sheet.appendRow([]);
-    sheet.appendRow([]);
+  
 
-    // Footer message
-    final footerRowIdx = dataRowIdx + 3; // Set footerRowIdx accordingly
-    sheet.appendRow(["Thank you for using iStocker ❤️"]);
-    sheet.cell(CellIndex.indexByString("A${footerRowIdx}")).cellStyle = headerStyle;
+    // Footer message (A$footerRowIdx:J$footerRowIdx merged)
+    final footerRowIdx = dataRowIdx + 3;
+    sheet.merge(excel.CellIndex.indexByString("A$footerRowIdx"), excel.CellIndex.indexByString("J$footerRowIdx"));
+    sheet.cell(excel.CellIndex.indexByString("A$footerRowIdx")).value = "Thank you for using iStocker ❤️";
+    sheet.cell(excel.CellIndex.indexByString("A$footerRowIdx")).cellStyle = excel.CellStyle(
+      bold: true,
+      horizontalAlign: excel.HorizontalAlign.Center,
+      backgroundColorHex: "#FFD9E6",
+    );
 
-    final fileBytes = excel.encode();
+    final fileBytes = xls.encode();
     if (fileBytes != null) {
       final tempDir = await getTemporaryDirectory();
       final file = File('${tempDir.path}/all_items_export.xlsx');
