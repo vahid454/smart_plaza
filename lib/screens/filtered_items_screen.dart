@@ -149,7 +149,7 @@ class FilteredItemsScreen extends StatelessWidget {
           }
 
           return ListView.builder(
-            padding: const EdgeInsets.all(8),
+            padding: const EdgeInsets.fromLTRB(8, 8, 8, 80),
             itemCount: items.length,
             itemBuilder: (context, index) {
               final doc = items[index];
@@ -206,49 +206,82 @@ class FilteredItemsScreen extends StatelessWidget {
       elevation: 3,
       margin: const EdgeInsets.symmetric(vertical: 6, horizontal: 4),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-      child: ListTile(
-        onTap: () {
-          if (isSold) {
-            _showPaymentDialog(context, doc);
-          }
-        },
-        title: Text(
-          data['name'] ?? 'Unnamed Item',
-          style: const TextStyle(fontWeight: FontWeight.bold),
-        ),
-        subtitle: Column(
+      child: Padding(
+        padding: const EdgeInsets.all(12.0),
+        child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('IMEI: ${data['imei'] ?? '-'}'),
-            Text('Purchase Price: ₹${data['purchasePrice'] ?? '-'}'),
-            if (isSold) ...[
-              const SizedBox(height: 4),
-              Text('Selling Price: ₹${data['sellingPrice'] ?? '-'}'),
-              Row(
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    data['name'] ?? 'Unnamed Item',
+                    style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                  ),
+                ),
+                Icon(
+                  isSold ? Icons.check_circle : Icons.shopping_bag_outlined,
+                  color: isSold ? Colors.red : Colors.green,
+                  size: 28,
+                ),
+              ],
+            ),
+            const SizedBox(height: 6),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('IMEI: ${data['imei'] ?? '-'}'),
+                Text('Owner: ${data['ownerName'] ?? '-'}'),
+                Text('Shopkeeper: ${(data['shopkeeper'] as Map<String, dynamic>?)?['name'] ?? '-'}'),
+                Text('Purchase Price: ₹${data['purchasePrice'] ?? '-'}'),
+                if ((data['purchaseDate'] ?? '').toString().isNotEmpty)
+                  Text('Purchase Date: ${data['purchaseDate']}'),
+                if (isSold && (data['saleDate'] ?? '').toString().isNotEmpty) Text('Sold on: ${data['saleDate']}'),
+                if (isSold) ...[
+                  const SizedBox(height: 4),
+                  Text('Selling Price: ₹${data['sellPrice'] ?? '-'}'),
+                ],
+              ],
+            ),
+            const Divider(height: 12),
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 6),
+              child: Row(
                 children: [
-                  const Text('Payment Status: ',
-                      style: TextStyle(fontWeight: FontWeight.w600)),
+                  const Text('Status: ', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
                   Text(
-                    isPaid ? 'Paid' : 'Pending',
+                    isSold ? 'Sold' : 'Available',
                     style: TextStyle(
-                      color: isPaid ? Colors.green : Colors.orange,
+                      color: isSold ? Colors.red : Colors.green,
+                      fontSize: 14,
                       fontWeight: FontWeight.w600,
                     ),
                   ),
+                  const SizedBox(width: 12),
+                  if (isSold)
+                    Row(
+                      children: [
+                        const Text('Payment: ', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
+                        Text(
+                          isPaid ? 'Paid' : 'Pending',
+                          style: TextStyle(
+                            color: isPaid ? Colors.green : Colors.orange,
+                            fontSize: 14,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ],
+                    ),
                 ],
               ),
-              if (isPaid) ...[
-                Text('Mode: $paymentMode'),
-                Text('Date: $paymentDate'),
-                Text('Amount: ₹$paymentAmount'),
-              ]
+            ),
+            if (isSold && isPaid) ...[
+              const SizedBox(height: 6),
+              Text('Mode: $paymentMode', style: const TextStyle(fontSize: 13)),
+              Text('Date: $paymentDate', style: const TextStyle(fontSize: 13)),
+              Text('Amount: ₹$paymentAmount', style: const TextStyle(fontSize: 13)),
             ],
           ],
-        ),
-        trailing: Icon(
-          isSold ? Icons.check_circle : Icons.shopping_bag_outlined,
-          color: isSold ? Colors.red : Colors.green,
-          size: 28,
         ),
       ),
     );

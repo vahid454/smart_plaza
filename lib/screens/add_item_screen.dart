@@ -65,6 +65,13 @@ class _AddItemScreenState extends State<AddItemScreen> {
           if (shopkeeperData != null) 'shopkeeper': shopkeeperData,
         });
         Navigator.pop(context);
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Item added successfully!'),
+            backgroundColor: Colors.green,
+            duration: Duration(seconds: 2),
+          ),
+        );
       } catch (e) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Error saving item: $e')),
@@ -336,7 +343,7 @@ Future<void> _scanIMEI() async {
                     onPressed: _isSaving ? null : _saveItem,
                     child: _isSaving
                         ? const CircularProgressIndicator(color: Colors.white)
-                        : const Text('Save Item', style: TextStyle(fontSize: 18)),
+                        : const Text('Save Item', style: TextStyle(fontSize: 18, color: Colors.white)),
                     style: ElevatedButton.styleFrom(
                       backgroundColor: Colors.green,
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),

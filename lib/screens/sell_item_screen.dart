@@ -28,8 +28,9 @@ class _SellItemScreenState extends State<SellItemScreen> {
 
   final _paymentDateController = TextEditingController();
   final _paymentRemarksController = TextEditingController();
+  final TextEditingController _paymentAmountController = TextEditingController();
 
-  String? _selectedPaymentMode;
+  String? _selectedPaymentMode = '';
 
   final DateFormat _dateFormatter = DateFormat('yyyy-MM-dd');
 
@@ -68,7 +69,7 @@ class _SellItemScreenState extends State<SellItemScreen> {
       } else {
         // Initialize payment and remarks fields from existing data (if any)
         _remarksController.text = widget.itemData['remarks'] ?? '';
-        _selectedPaymentMode = widget.itemData['paymentMode'];
+        _selectedPaymentMode = widget.itemData['paymentMode'] ?? '';
         _paymentDateController.text = widget.itemData['paymentDate'] ?? '';
         _paymentRemarksController.text = widget.itemData['paymentRemarks'] ?? '';
       }
@@ -83,6 +84,7 @@ class _SellItemScreenState extends State<SellItemScreen> {
     _remarksController.dispose();
     _paymentDateController.dispose();
     _paymentRemarksController.dispose();
+    _paymentAmountController.dispose();
     super.dispose();
   }
 
@@ -129,7 +131,7 @@ class _SellItemScreenState extends State<SellItemScreen> {
       };
 
       // Optional payment info
-      if (_selectedPaymentMode != null && _selectedPaymentMode!.isNotEmpty) {
+      if ((_selectedPaymentMode ?? '').isNotEmpty) {
         updateData.addAll({
           'paymentMode': _selectedPaymentMode,
           'paymentDate': _paymentDateController.text,
@@ -170,7 +172,9 @@ class _SellItemScreenState extends State<SellItemScreen> {
     }
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Sell Item')),
+      appBar: AppBar(
+        title: const Text('📦 Sell Item', style: TextStyle(fontWeight: FontWeight.bold)),
+      ),
       body: SafeArea(
         child: LayoutBuilder(
           builder: (context, constraints) {
@@ -179,101 +183,20 @@ class _SellItemScreenState extends State<SellItemScreen> {
                 constraints: BoxConstraints(minHeight: constraints.maxHeight),
                 child: IntrinsicHeight(
                   child: Padding(
-                    padding: const EdgeInsets.all(16),
+                    padding: const EdgeInsets.fromLTRB(20, 24, 20, 80),
                     child: Form(
                       key: _formKey,
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Flexible(fit: FlexFit.loose,
+                          Flexible(
+                            fit: FlexFit.loose,
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                              // Item Info
-                              Card(
-                                elevation: 3,
-                                margin: const EdgeInsets.only(bottom: 16),
-                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                                child: Padding(
-                                  padding: const EdgeInsets.all(16),
-                                  child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                    children: [
-                                      Text(
-                                        'Item: ${widget.itemData['name'] ?? 'Unnamed'}',
-                                        style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                                      ),
-                                      const SizedBox(height: 6),
-                                      Text('IMEI: ${widget.itemData['imei'] ?? 'N/A'}'),
-                                    ],
-                                  ),
-                                ),
-                              ),
-
-                              // Sell Details
-                              Card(
-                                elevation: 3,
-                                margin: const EdgeInsets.only(bottom: 16),
-                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                                child: Padding(
-                                  padding: const EdgeInsets.all(16),
-                                  child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                    children: [
-                                      const Text('Sell Details', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-                                      const SizedBox(height: 12),
-                                      TextFormField(
-                                        controller: _sellPriceController,
-                                        decoration: const InputDecoration(
-                                          labelText: 'Sell Price*',
-                                          prefixIcon: Icon(Icons.attach_money),
-                                        ),
-                                        keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                                        validator: (value) {
-                                          if (value == null || value.trim().isEmpty) return 'Required';
-                                          final n = num.tryParse(value);
-                                          if (n == null) return 'Enter a valid number';
-                                          if (n <= 0) return 'Price must be greater than zero';
-                                          return null;
-                                        },
-                                      ),
-                                      const SizedBox(height: 12),
-                                      TextFormField(
-                                        controller: _sellDateController,
-                                        decoration: const InputDecoration(
-                                          labelText: 'Sell Date*',
-                                          prefixIcon: Icon(Icons.calendar_today),
-                                        ),
-                                        readOnly: true,
-                                        onTap: () => _pickDate(_sellDateController),
-                                        validator: (value) => (value == null || value.isEmpty) ? 'Required' : null,
-                                      ),
-                                      const SizedBox(height: 12),
-                                      TextFormField(
-                                        controller: _sellPartyController,
-                                        decoration: const InputDecoration(
-                                          labelText: 'Sell Party*',
-                                          prefixIcon: Icon(Icons.person),
-                                        ),
-                                        validator: (value) => (value == null || value.trim().isEmpty) ? 'Required' : null,
-                                      ),
-                                      const SizedBox(height: 12),
-                                      TextFormField(
-                                        controller: _remarksController,
-                                        decoration: const InputDecoration(
-                                          labelText: 'Remarks',
-                                          prefixIcon: Icon(Icons.notes),
-                                        ),
-                                        maxLines: 3,
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              ),
-
-                              if (userRole == 'owner')
+                                // Item Info
                                 Card(
-                                  elevation: 3,
+                                  elevation: 5,
                                   margin: const EdgeInsets.only(bottom: 16),
                                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                                   child: Padding(
@@ -281,57 +204,181 @@ class _SellItemScreenState extends State<SellItemScreen> {
                                     child: Column(
                                       crossAxisAlignment: CrossAxisAlignment.start,
                                       children: [
-                                        const Text('Payment Information (Optional)', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                                        Text(
+                                          'Item: ${widget.itemData['name'] ?? 'Unnamed'}',
+                                          style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                                        ),
+                                        const SizedBox(height: 6),
+                                        Text('IMEI: ${widget.itemData['imei'] ?? 'N/A'}'),
+                                        const SizedBox(height: 6),
+                                        Text('Purchase Amount: ₹${widget.itemData['purchasePrice'] ?? 'N/A'}'),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+
+                                // Sell Details
+                                Card(
+                                  elevation: 5,
+                                  margin: const EdgeInsets.only(bottom: 16),
+                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                                  child: Padding(
+                                    padding: const EdgeInsets.all(16),
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        const Text('Sell Details', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
                                         const SizedBox(height: 12),
-                                        DropdownButtonFormField<String>(
-                                          decoration: const InputDecoration(
-                                            labelText: 'Payment Mode',
-                                            prefixIcon: Icon(Icons.payment),
+                                        TextFormField(
+                                          controller: _sellPriceController,
+                                          decoration: InputDecoration(
+                                            labelText: 'Sell Price*',
+                                            prefixIcon: const Icon(Icons.attach_money),
+                                            border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
                                           ),
-                                          items: ['Cash', 'UPI', 'Card', 'Other']
-                                              .map((mode) => DropdownMenuItem(value: mode, child: Text(mode)))
-                                              .toList(),
-                                          value: _selectedPaymentMode,
-                                          onChanged: (val) => setState(() => _selectedPaymentMode = val),
-                                          isExpanded: true,
+                                          keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                                          validator: (value) {
+                                            if (value == null || value.trim().isEmpty) return 'Required';
+                                            final n = num.tryParse(value);
+                                            if (n == null) return 'Enter a valid number';
+                                            if (n <= 0) return 'Price must be greater than zero';
+                                            return null;
+                                          },
                                         ),
                                         const SizedBox(height: 12),
                                         TextFormField(
-                                          controller: _paymentDateController,
-                                          decoration: const InputDecoration(
-                                            labelText: 'Payment Date',
-                                            prefixIcon: Icon(Icons.calendar_today),
+                                          controller: _sellDateController,
+                                          decoration: InputDecoration(
+                                            labelText: 'Sell Date*',
+                                            prefixIcon: const Icon(Icons.calendar_today),
+                                            border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
                                           ),
                                           readOnly: true,
-                                          onTap: () => _pickDate(_paymentDateController),
+                                          onTap: () => _pickDate(_sellDateController),
+                                          validator: (value) => (value == null || value.isEmpty) ? 'Required' : null,
                                         ),
                                         const SizedBox(height: 12),
                                         TextFormField(
-                                          controller: _paymentRemarksController,
-                                          decoration: const InputDecoration(
-                                            labelText: 'Payment Remarks',
-                                            prefixIcon: Icon(Icons.note_add),
+                                          controller: _sellPartyController,
+                                          decoration: InputDecoration(
+                                            labelText: 'Sell Party*',
+                                            prefixIcon: const Icon(Icons.person),
+                                            border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
                                           ),
-                                          maxLines: 2,
+                                          validator: (value) => (value == null || value.trim().isEmpty) ? 'Required' : null,
+                                        ),
+                                        const SizedBox(height: 12),
+                                        TextFormField(
+                                          controller: _remarksController,
+                                          decoration: InputDecoration(
+                                            labelText: 'Remarks',
+                                            prefixIcon: const Icon(Icons.notes),
+                                            border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                                          ),
+                                          maxLines: 3,
                                         ),
                                       ],
                                     ),
                                   ),
                                 ),
-                            ],
+
+                                if (userRole == 'owner')
+                                  Card(
+                                    elevation: 5,
+                                    margin: const EdgeInsets.only(bottom: 16),
+                                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                                    child: Padding(
+                                      padding: const EdgeInsets.all(16),
+                                      child: Column(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: [
+                                          const Text('Payment Information (Owner)', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                                          const SizedBox(height: 12),
+                                          DropdownButtonFormField<String>(
+                                            decoration: InputDecoration(
+                                              labelText: 'Payment Mode',
+                                              prefixIcon: const Icon(Icons.payment),
+                                              border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                                            ),
+                                            items: [
+                                              DropdownMenuItem(value: '', child: Text('-- None --')),
+                                              ...['Cash', 'UPI', 'Card', 'Other'].map((mode) => DropdownMenuItem(value: mode, child: Text(mode)))
+                                            ],
+                                            value: _selectedPaymentMode ?? '',
+                                            onChanged: (val) => setState(() => _selectedPaymentMode = val),
+                                            isExpanded: true,
+                                          ),
+                                          const SizedBox(height: 12),
+                                          TextFormField(
+                                            controller: _paymentAmountController,
+                                            decoration: InputDecoration(
+                                              labelText: 'Payment Amount',
+                                              prefixIcon: Icon(Icons.money),
+                                              border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                                            ),
+                                            keyboardType: TextInputType.numberWithOptions(decimal: true),
+                                            validator: (value) {
+                                              if ((_selectedPaymentMode ?? '').isNotEmpty) {
+                                                if (value == null || value.trim().isEmpty) return 'Required';
+                                                final n = num.tryParse(value);
+                                                if (n == null) return 'Enter a valid number';
+                                                if (n <= 0) return 'Must be greater than zero';
+                                              }
+                                              return null;
+                                            },
+                                          ),
+                                          const SizedBox(height: 12),
+                                          TextFormField(
+                                            controller: _paymentDateController,
+                                            decoration: InputDecoration(
+                                              labelText: 'Payment Date',
+                                              prefixIcon: const Icon(Icons.calendar_today),
+                                              border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                                            ),
+                                            readOnly: true,
+                                            onTap: () => _pickDate(_paymentDateController),
+                                            validator: (value) {
+                                              if ((_selectedPaymentMode ?? '').isNotEmpty && (value == null || value.isEmpty)) {
+                                                return 'Required';
+                                              }
+                                              return null;
+                                            },
+                                          ),
+                                          const SizedBox(height: 12),
+                                          TextFormField(
+                                            controller: _paymentRemarksController,
+                                            decoration: InputDecoration(
+                                              labelText: 'Payment Remarks',
+                                              prefixIcon: const Icon(Icons.note_add),
+                                              border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                                            ),
+                                            maxLines: 2,
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ),
+                              ],
+                            ),
                           ),
-                          ),
-                          SizedBox(height: 24),
+                          const SizedBox(height: 24),
                           SizedBox(
                             width: double.infinity,
-                            child: ElevatedButton(
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: Colors.green,
-                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                                padding: const EdgeInsets.symmetric(vertical: 16),
+                            child: Container(
+                              decoration: BoxDecoration(
+                                gradient: const LinearGradient(colors: [Colors.green, Colors.teal]),
+                                borderRadius: BorderRadius.circular(10),
                               ),
-                              onPressed: _sellItem,
-                              child: const Text('Sell Item', style: TextStyle(fontSize: 18, color: Colors.white)),
+                              child: ElevatedButton(
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: Colors.transparent,
+                                  shadowColor: Colors.transparent,
+                                  padding: const EdgeInsets.symmetric(vertical: 16),
+                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                                ),
+                                onPressed: _sellItem,
+                                child: const Text('Sell Item', style: TextStyle(fontSize: 18, color: Colors.white)),
+                              ),
                             ),
                           ),
                         ],
