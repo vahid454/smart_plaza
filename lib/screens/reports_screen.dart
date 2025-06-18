@@ -133,7 +133,10 @@ class _ReportsScreenState extends State<ReportsScreen> {
           } catch (_) {}
         }
 
-        if ((data['isSold'] ?? false) == true && (data['paymentAmount'] ?? 0) == 0) {
+        final isSold = (data['isSold'] ?? false) == true;
+        final payment = (data['paymentAmount'] is num) ? data['paymentAmount'].toDouble() : double.tryParse(data['paymentAmount'].toString()) ?? 0.0;
+
+        if (isSold && payment == 0.0) {
           pendingPaymentsAmount += (data['purchasePrice'] ?? 0).toDouble();
         }
       } else {

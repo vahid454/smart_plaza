@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:intl/intl.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 
 class FilteredItemsScreen extends StatelessWidget {
   final bool isSold;
@@ -121,6 +122,7 @@ class FilteredItemsScreen extends StatelessWidget {
           }
 
           List<QueryDocumentSnapshot> items = [];
+          final currentUserId = FirebaseAuth.instance.currentUser?.uid;
 
           if (isSold) {
             final pendingItems = snapshot.data!.docs.where((doc) {
@@ -183,12 +185,28 @@ class FilteredItemsScreen extends StatelessWidget {
                         ),
                       ),
                     ),
-                    _buildItemCard(context, doc, data, isPaid),
+                    GestureDetector(
+                      onTap: () {
+                        final isOwner = data['ownerId'] == currentUserId;
+                        if (isSold && !isPaid && isOwner) {
+                          _showPaymentDialog(context, doc);
+                        }
+                      },
+                      child: _buildItemCard(context, doc, data, isPaid),
+                    ),
                   ],
                 );
               }
 
-              return _buildItemCard(context, doc, data, isPaid);
+              return GestureDetector(
+                onTap: () {
+                  final isOwner = data['ownerId'] == currentUserId;
+                  if (isSold && !isPaid && isOwner) {
+                    _showPaymentDialog(context, doc);
+                  }
+                },
+                child: _buildItemCard(context, doc, data, isPaid),
+              );
             },
           );
         },

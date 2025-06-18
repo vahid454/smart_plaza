@@ -136,6 +136,7 @@ class _SellItemScreenState extends State<SellItemScreen> {
           'paymentMode': _selectedPaymentMode,
           'paymentDate': _paymentDateController.text,
           'paymentRemarks': _paymentRemarksController.text,
+          'paymentAmount': double.tryParse(_paymentAmountController.text) ?? 0.0,
         });
       }
 
