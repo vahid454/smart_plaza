@@ -372,7 +372,7 @@ void _exportToExcel(BuildContext context, List<QueryDocumentSnapshot> allItems) 
     // --- HEADER SECTION ---
     // Add top padding (2 empty rows, since Title goes to row 3)
     sheet.appendRow([]);
-    sheet.appendRow([]);
+    sheet.appendRow([]); // Two rows after item data, before summary
 
     // Title row (A3:J3 merged)
     sheet.merge(excel.CellIndex.indexByString("A3"), excel.CellIndex.indexByString("J3"));
@@ -386,7 +386,7 @@ void _exportToExcel(BuildContext context, List<QueryDocumentSnapshot> allItems) 
 
     // Subtitle row (A4:J4 merged)
     sheet.merge(excel.CellIndex.indexByString("A4"), excel.CellIndex.indexByString("J4"));
-    sheet.cell(excel.CellIndex.indexByString("A4")).value = "Empowering your inventory with intelligence";
+    sheet.cell(excel.CellIndex.indexByString("A4")).value = "Empowering your Inventory";
     sheet.cell(excel.CellIndex.indexByString("A4")).cellStyle = excel.CellStyle(
       bold: true,
       fontSize: 14,
@@ -403,7 +403,8 @@ void _exportToExcel(BuildContext context, List<QueryDocumentSnapshot> allItems) 
     );
 
 
-    final headings = [
+   sheet.appendRow([""]); 
+   final headings = [
       'Name',
       'Serial Number',
       'Owner',
@@ -460,13 +461,66 @@ void _exportToExcel(BuildContext context, List<QueryDocumentSnapshot> allItems) 
       dataRowIdx++;
     }
 
+    sheet.appendRow([""]); 
+    // --- SUMMARY SECTION ---
+    double totalUnsoldValue = 0;
+    double totalPendingAmount = 0;
+    double totalProfit = 0;
+
+    for (final doc in allItems) {
+      final data = doc.data() as Map<String, dynamic>;
+      final isSold = data['isSold'] ?? false;
+      final paymentMode = data['paymentMode'] ?? '';
+      final paymentDate = data['paymentDate'] ?? '';
+      final isPaid = paymentMode.isNotEmpty && paymentDate.isNotEmpty;
+      final purchasePrice = double.tryParse('${data['purchasePrice'] ?? '0'}') ?? 0;
+      final paymentAmount = double.tryParse('${data['paymentAmount'] ?? '0'}') ?? 0;
+
+      if (!isSold) {
+        totalUnsoldValue += purchasePrice;
+      } else if (!isPaid) {
+        totalPendingAmount += purchasePrice;
+      } else if (isPaid) {
+        totalProfit += paymentAmount - purchasePrice;
+      }
+    }
+
+
+    dataRowIdx++;
+    // Summary Title
+    sheet.merge(excel.CellIndex.indexByString("A$dataRowIdx"), excel.CellIndex.indexByString("J$dataRowIdx"));
+    sheet.cell(excel.CellIndex.indexByString("A$dataRowIdx")).value = "Summary";
+    sheet.cell(excel.CellIndex.indexByString("A$dataRowIdx")).cellStyle = excel.CellStyle(
+      bold: true,
+      horizontalAlign: excel.HorizontalAlign.Center,
+      backgroundColorHex: "#DAEEF3",
+    );
+
+    dataRowIdx++;
+
+    // Summary Rows
+    final summaryRows = [
+      "Total Unsold Value: ₹$totalUnsoldValue",
+      "Total Pending Amount: ₹$totalPendingAmount",
+      "Total Profit: ₹$totalProfit",
+    ];
+
+    for (final summary in summaryRows) {
+      sheet.merge(excel.CellIndex.indexByString("A$dataRowIdx"), excel.CellIndex.indexByString("J$dataRowIdx"));
+      sheet.cell(excel.CellIndex.indexByString("A$dataRowIdx")).value = summary;
+      sheet.cell(excel.CellIndex.indexByString("A$dataRowIdx")).cellStyle = excel.CellStyle(
+        backgroundColorHex: "#DAEEF3",
+      );
+      dataRowIdx++;
+    }
+
+ 
     // --- FOOTER SECTION ---
     // Add spacing before footer
     sheet.appendRow([]);
-  
 
     // Footer message (A$footerRowIdx:J$footerRowIdx merged)
-    final footerRowIdx = dataRowIdx + 3;
+    final footerRowIdx = dataRowIdx + 1;
     sheet.merge(excel.CellIndex.indexByString("A$footerRowIdx"), excel.CellIndex.indexByString("J$footerRowIdx"));
     sheet.cell(excel.CellIndex.indexByString("A$footerRowIdx")).value = "Thank you for using iStocker ❤️";
     sheet.cell(excel.CellIndex.indexByString("A$footerRowIdx")).cellStyle = excel.CellStyle(
