@@ -191,18 +191,18 @@ class _DashboardState extends State<Dashboard> {
                                   );
                                 },
                               ),
-                              _buildDashboardButton(
-                                context,
-                                "Owner Settings",
-                                Icons.settings,
-                                Colors.deepOrange,
-                                () {
-                                  // Navigate to owner management screen (to be implemented)
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    const SnackBar(content: Text("Owner Settings screen to be implemented.")),
-                                  );
-                                },
-                              ),
+                              // _buildDashboardButton(
+                              //   context,
+                              //   "Owner Settings",
+                              //   Icons.settings,
+                              //   Colors.deepOrange,
+                              //   () {
+                              //     // Navigate to owner management screen (to be implemented)
+                              //     ScaffoldMessenger.of(context).showSnackBar(
+                              //       const SnackBar(content: Text("Owner Settings screen to be implemented.")),
+                              //     );
+                              //   },
+                              // ),
                             ],
                     ),
                   ),

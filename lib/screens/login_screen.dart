@@ -124,7 +124,10 @@ class _LoginScreenState extends State<LoginScreen> {
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    const Icon(Icons.store, size: 64, color: Colors.deepPurple),
+                    Image.asset(
+                      'assets/icon/app_icon.png',
+                      height: 64,
+                    ),
                     const SizedBox(height: 16),
                     const Text(
                       "Login as",
