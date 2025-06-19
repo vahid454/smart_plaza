@@ -111,8 +111,14 @@ class _AllItemsScreenState extends State<AllItemsScreen> {
 
                 // Step 2: Move _loading state handling here, update _allItems and _loading synchronously
                 if (_allItems.isEmpty && allItems.isNotEmpty) {
-                  _allItems = allItems;
-                  _loading = false;
+                  WidgetsBinding.instance.addPostFrameCallback((_) {
+                    if (mounted) {
+                      setState(() {
+                        _allItems = allItems;
+                        _loading = false;
+                      });
+                    }
+                  });
                 }
                 // Show loader only if _loading is true and _allItems is empty (i.e., initial data not yet ready)
                 showLoading = _loading && _allItems.isEmpty;
