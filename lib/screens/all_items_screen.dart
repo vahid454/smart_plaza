@@ -427,7 +427,14 @@ void _exportToExcel(BuildContext context, List<QueryDocumentSnapshot> allItems) 
         backgroundColorHex: "#FFE599",
         horizontalAlign: excel.HorizontalAlign.Center,
       );
-      sheet.setColWidth(col, 60);
+      // Set specific column widths for A-D and J, columns E-J to width 20, otherwise use default
+      if (col >= 0 && col <= 3) {
+        sheet.setColWidth(col, 30); // A to D
+      } else if (col >= 4 && col <= 9) {
+        sheet.setColWidth(col, 25); // E to J
+      } else {
+        sheet.setColWidth(col, 60);
+      }
     }
 
     // --- DATA ROWS ---
